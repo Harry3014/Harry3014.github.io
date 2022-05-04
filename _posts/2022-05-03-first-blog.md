@@ -1,11 +1,12 @@
 ---
+layout: single
 title: "这是我的第一篇博客"
 date: 2022-05-04 22:37
 last_modified_at: 2022-05-04 22:51
 categories:
-  - 生活
+  - life
 tags:
-  - 生活
+  - life
 ---
 
 2011年夏，我进入了大学的校门，成为了一个探索CS的萌新。
