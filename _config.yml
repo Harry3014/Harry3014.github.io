@@ -12,23 +12,24 @@
 
 # theme                  : "minimal-mistakes-jekyll"
 # remote_theme           : "mmistakes/minimal-mistakes"
-minimal_mistakes_skin    : "default" # "air", "aqua", "contrast", "dark", "dirt", "neon", "mint", "plum", "sunrise"
+minimal_mistakes_skin    : "air" # "air", "aqua", "contrast", "dark", "dirt", "neon", "mint", "plum", "sunrise"
 
 # Site Settings
-locale                   : "en-US"
-title                    : "Site Title"
+locale                   : "zh-CN"
+title                    : "Harry's digital garden"
 title_separator          : "-"
 subtitle                 : # site tagline that appears below site title in masthead
-name                     : "Your Name"
-description              : "An amazing website."
-url                      : # the base hostname & protocol for your site e.g. "https://mmistakes.github.io"
+name                     : "Harry He"
+description              : "何宇的个人博客"
+url                      : "https://harry3014.github.io" # the base hostname & protocol for your site e.g. "https://mmistakes.github.io"
 baseurl                  : # the subpath of your site, e.g. "/blog"
 repository               : # GitHub username/repo-name e.g. "mmistakes/minimal-mistakes"
 teaser                   : # path of fallback teaser image, e.g. "/assets/images/500x300.png"
 logo                     : # path of logo image to display in the masthead, e.g. "/assets/images/88x88.png"
-masthead_title           : # overrides the website title displayed in the masthead, use " " for no title
+masthead_title           : "Harry的数字花园" # overrides the website title displayed in the masthead, use " " for no title
 # breadcrumbs            : false # true, false (default)
 words_per_minute         : 200
+date_format              : "%Y-%m-%d %H:%M"
 comments:
   provider               : # false (default), "disqus", "discourse", "facebook", "staticman", "staticman_v2", "utterances", "giscus", "custom"
   disqus:
@@ -58,7 +59,7 @@ reCaptcha:
   secret                 :
 atom_feed:
   path                   : # blank (default) uses feed.xml
-  hide                   : # true, false (default)
+  hide                   : true # true, false (default)
 search                   : # true, false (default)
 search_full_content      : # true, false (default)
 search_provider          : # lunr (default), algolia, google
@@ -102,11 +103,11 @@ analytics:
 
 # Site Author
 author:
-  name             : "Your Name"
-  avatar           : # path of avatar image, e.g. "/assets/images/bio-photo.jpg"
-  bio              : "I am an **amazing** person."
-  location         : "Somewhere"
-  email            :
+  name             : "Harry He"
+  avatar           : "/assets/images/avatar.jpeg" # path of avatar image, e.g. "/assets/images/bio-photo.jpg"
+  bio              : "「有期待的平凡程序员」"
+  location         : "深圳"
+  email            : "harry3014@163.com"
   links:
     - label: "Email"
       icon: "fas fa-fw fa-envelope-square"
@@ -138,7 +139,7 @@ footer:
       # url:
     - label: "GitHub"
       icon: "fab fa-fw fa-github"
-      # url:
+      url: "https://github.com/Harry3014"
     - label: "GitLab"
       icon: "fab fa-fw fa-gitlab"
       # url:
@@ -148,6 +149,9 @@ footer:
     - label: "Instagram"
       icon: "fab fa-fw fa-instagram"
       # url:
+    - label: "微博"
+      icon: "fab fa-fw fa-weibo"
+      url: "https://www.weibo.com/u/2566821914"
 
 
 # Reading Files
@@ -288,3 +292,4 @@ defaults:
       comments: # true
       share: true
       related: true
+      show_date: true
