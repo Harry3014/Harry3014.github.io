@@ -95,7 +95,7 @@ function useState(initialState) {
 
 如果理解了上面的内容，那么你应该能理解第一条规则。如果还是有点模糊，继续往下看。
 
-看看下面错误示范，在条件中调用 hook。
+看看下面的错误示范，在条件中调用 hook。
 
 ```jsx
 let firstRender = true;
