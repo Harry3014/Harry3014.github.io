@@ -1,7 +1,8 @@
 ---
 title: "这是我的第一篇博客"
-date: 2022-05-04 22:47
-last_modified_at: 2022-05-04 23:48
+excerpt: "^_^"
+date: 2022-05-04
+last_modified_at: 2022-05-04
 categories:
   - 生活
 tags:
