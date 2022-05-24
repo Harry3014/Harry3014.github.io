@@ -11,6 +11,7 @@ tags:
 ---
 
 这篇文章介绍从零开始创建 React。
+
 _React 的真实实现并非如此，我们只是理解 React 设计的哲学_
 
 ## 第一步：了解 React Element 的数据结构
@@ -116,3 +117,51 @@ function render(element, container) {
 ```
 
 在[codesanbox](https://codesandbox.io/s/fakereact-ls247r?file=/src/index.js)中试试吧！
+
+## 第四步：调度
+
+如果把整个一个结构很复杂的 element 没有中断的一次性渲染出来，那么主线程将会被一直占用，一些高优先级的事务都会被阻塞。
+
+那么我们就应该把这部分工作分成一个个小的单元，让我们能够控制什么时候开始和中止。
+
+这里我们使用`requestIdleCallback`来实现。检查是否存在需要执行的任务，是否空闲，如果满足条件，那么执行这个任务并返回下一个任务，重复这个过程。
+
+_React 没有使用 requestIdleCallback，而是自己实现了 scheduler_
+
+```js
+let nextUnitOfWork = null;
+
+requestIdleCallback(workLoop);
+
+function workLoop(deadline) {
+  let idle = true;
+  while (nextUnitOfWork && idle) {
+    nextUnitOfWork = performUnitOfWork(nextUnitOfWork);
+    idle = deadline.timeRemaining() > 1;
+  }
+  requestIdleCallback(workLoop);
+}
+
+function performUnitOfWork(unitOfWork) {
+  // TODO
+  return null;
+}
+```
+
+## 第五步：了解 Fiber 结构
+
+这是一段 jsx，下面的图描述了对应的 Fiber 树。
+
+```html
+<div>
+  <h1>
+    <p />
+    <a />
+  </h1>
+  <h2 />
+</div>
+```
+
+<figure style="background: #263238">
+  <img src="/assets/images/fibertree.png">
+</figure>
