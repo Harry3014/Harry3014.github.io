@@ -120,7 +120,7 @@ function render(element, container) {
 
 ## 第四步：调度
 
-如果把整个一个结构很复杂的 element 没有中断的一次性渲染出来，那么主线程将会被一直占用，一些高优先级的事务都会被阻塞。
+如果把一个结构很复杂的 element 没有中断的一次性渲染出来，那么主线程将会被一直占用，一些高优先级的事务都会被阻塞。
 
 那么我们就应该把这部分工作分成一个个小的单元，让我们能够控制什么时候开始和中止。
 
@@ -152,6 +152,8 @@ function performUnitOfWork(unitOfWork) {
 
 这是一段 jsx，下面的图描述了对应的 Fiber 树。
 
+`fiber.child`表示第一个 child，`fiber.sibling`表示同一层级的下一个 fiber，`fiber.parent`表示父节点。这样类似链表结构很方便进行操作。
+
 ```html
 <div>
   <h1>
@@ -165,3 +167,99 @@ function performUnitOfWork(unitOfWork) {
 <figure style="background: #263238">
   <img src="/assets/images/fibertree.png">
 </figure>
+
+上一步我们还没有实现`performUnitOfWork`，这个函数做三件事。
+
+1. 把 React 元素添加到 DOM 中
+2. 为 children 元素生成 fiber
+3. 选择下一个要执行的任务
+
+```js
+function performUnitOfWork(fiber) {
+  // 添加DOM
+  if (!fiber.dom) {
+    fiber.dom = createDOM(fiber);
+  }
+
+  if (fiber.parent) {
+    fiber.parent.dom.appendChild(fiber.dom);
+  }
+
+  // 生成子元素的fiber，指定child，sibling，parent
+  const elements = fiber.props.children;
+
+  let isFirstChild = true;
+  let leftSibling = null;
+  for (const element of elements) {
+    const newFiber = {
+      type: element.type,
+      props: element.props,
+      parent: fiber,
+      dom: null,
+    };
+    if (isFirstChild) {
+      fiber.child = newFiber;
+      isFirstChild = false;
+    } else {
+      leftSibling.sibling = newFiber;
+    }
+    leftSibling = newFiber;
+  }
+
+  /**
+   * 选择下一个要执行的fiber
+   * 如果有child，直接返回
+   * 否则检查是否有sibling
+   * 否则返回parent，检查parent是否有sibling
+   */
+  if (fiber.child) {
+    return fiber.child;
+  }
+
+  let nextFiber = fiber;
+  while (nextFiber) {
+    if (nextFiber.sibling) {
+      return nextFiber.sibling;
+    }
+    nextFiber = nextFiber.parent;
+  }
+
+  return nextFiber;
+}
+```
+
+## 第六步：渲染和提交阶段
+
+上一步的`performUnitOfWork`中我们处理一个 fiber 的时候立刻添加了 DOM，我们忽略了一个问题就是我们是利用浏览器的空闲时段来处理，是可能随时被中断的，那么呈现出来的可能是不完整的 UI，这不是我们所期望的。
+
+那我们就保存 fiber root，等到没有任务了，然后再提交 DOM。
+
+```js
+let wipRoot = null;
+
+function commitRoot() {
+  commitWork(wipRoot.child);
+  wipRoot = null;
+}
+
+function commitWork(fiber) {
+  if (!fiber) {
+    return;
+  }
+  fiber.parent.dom.appendChild(fiber.dom);
+  commitWork(fiber.child);
+  commitWork(fiber.sibling);
+}
+```
+
+## 第七步：协调
+
+现在我们只讨论了添加 DOM 的情况，那么更新和删除呢？
+
+我们需要保存当前的 fiber 树，然后跟新的 fiber 树进行比较就可得出需要添加更新删除的信息。
+
+比较过程如下：
+
+1. 如果有相同的 type，那么就是更新 DOM
+2. 如果 type 不同，并且有元素，那么需要给这个元素创建 DOM
+3. 如果 type 不同，而且存在旧的 fiber，那么需要删除 DOM
