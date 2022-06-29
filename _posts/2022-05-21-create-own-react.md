@@ -263,3 +263,79 @@ function commitWork(fiber) {
 1. 如果有相同的 type，那么就是更新 DOM
 2. 如果 type 不同，并且有元素，那么需要给这个元素创建 DOM
 3. 如果 type 不同，而且存在旧的 fiber，那么需要删除 DOM
+
+```js
+function reconcileChildren(wipFiber) {
+  const elements = wipFiber.props.children;
+  let oldFiber = wipFiber.alternate?.child;
+
+  let index = 0;
+  let leftSibling = null;
+  while (index < elements.length || oldFiber) {
+    let element = null;
+    if (index < elements.length) {
+      element = elements[index];
+    }
+
+    let newFiber = null;
+
+    const sameType = oldFiber && element && oldFiber.type === element.type;
+
+    if (sameType) {
+      newFiber = {
+        type: element.type,
+        props: element.props,
+        dom: oldFiber.dom,
+        parent: wipFiber,
+        alternate: oldFiber,
+        effectTag: "UPDATE",
+      };
+    }
+
+    if (element && !sameType) {
+      newFiber = {
+        type: element.type,
+        props: element.props,
+        dom: null,
+        parent: wipFiber,
+        alternate: null,
+        effectTag: "PLACEMENT",
+      };
+    }
+
+    if (oldFiber && !sameType) {
+      oldFiber.effectTag = "DELETION";
+      deletions.push(oldFiber);
+    }
+
+    if (oldFiber) {
+      oldFiber = oldFiber.sibling;
+    }
+
+    if (index === 0) {
+      wipFiber.child = newFiber;
+    } else {
+      leftSibling.sibling = newFiber;
+    }
+
+    leftSibling = newFiber;
+    index++;
+  }
+}
+```
+
+## 第八步：函数组件
+
+目前为止我们讨论的都是原生的 html 元素，现在我们来考虑加入函数组件。
+
+函数组件不同之处有三点：
+
+1. type 就是函数本身
+2. 自身没有对应的 DOM
+3. children 需要执行函数获得
+
+## 第九步：加入 hook
+
+这篇[文章](https://harry3014.github.io/react/react-hook/)有关于 hook 更详细的解释。
+
+到此为止，我们已经完成了整个 React，来[看看](https://codesandbox.io/s/fakereact-ls247r?file=/src/index.js)吧！
