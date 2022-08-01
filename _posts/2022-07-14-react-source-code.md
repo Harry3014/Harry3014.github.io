@@ -1,5 +1,5 @@
 ---
-title: "React源码分析"
+title: "深入React"
 excerpt: ""
 toc: true
 date: 2022-07-14
@@ -10,7 +10,7 @@ tags:
   - React
 ---
 
-本篇文章都是基于<a href="https://github.com/facebook/react/tree/3ddbedd0520a9738d8c3c7ce0268542e02f9738a" target="_blank">React 18</a>。
+本文分析基于<a href="https://github.com/facebook/react/tree/3ddbedd0520a9738d8c3c7ce0268542e02f9738a" target="_blank">React 18 版本</a>。
 
 ## React 源码的架构
 
@@ -41,55 +41,171 @@ React 的设计理念中会把工作切成一个个小的任务，而且每个�
 ## 从一个简单的例子开始
 
 ```jsx
-const style = { textAlign: "right" };
-const element = (
-  <div>
-    <h1 className="header">Hello, world!</h1>
-    <h2 style={style}>From future</h2>
-  </div>
-);
+function Counter() {
+  const [count, setCount] = React.useState(0);
+
+  const handleClick = () => {
+    setCount(count + 1);
+  };
+
+  return (
+    <div className="counter">
+      <h1>You clicked {count} times</h1>
+      <button onClick={handleClick}>Click</button>
+    </div>
+  );
+}
+
 const container = document.getElementById("root");
 const root = ReactDOM.createRoot(container);
-root.render(element);
+root.render(<Counter />);
 ```
 
 ## React 元素
 
-上面的 JSX 会转换成 React 元素，React 元素的大致结构如下，这里还有很多属性没有列出，例如`$$typeof`，`key`，`ref`等等，<a href="https://github.com/facebook/react/blob/3ddbedd0520a9738d8c3c7ce0268542e02f9738a/packages/react/src/ReactElement.js#L148" target="_blank">源码</a>查看完整结构。
+元素（element）是 React 中很重要的概念，它是构成 React 应用的最小单元。它本质上就是普通的 JavaScript 对象，它描述了你想要看到的内容。元素一旦被创建，那么它就是**不可变**的。
+
+上面的 JSX 创建了 React 元素，React 元素的大致结构如下，在<a href="https://github.com/facebook/react/blob/3ddbedd0520a9738d8c3c7ce0268542e02f9738a/packages/react/src/ReactElement.js#L148" target="_blank">源码</a>中可以看到它的完整结构。
 
 ```javascript
-const element = {
-  type: "div",
-  props: {
-    children: [
-      {
-        type: "h1",
-        props: {
-          className: "header",
-          children: "hello world",
-        },
-      },
-      {
-        type: "h2",
-        props: {
-          style: {
-            textAlign: "right",
-          },
-          children: "from future",
-        },
-      },
-    ],
-  },
+reactElement = {
+  $$typeof,
+  type,
+  key,
+  ref,
+  props,
 };
 ```
 
-## ReactDOM.createRoot
+**$$typeof**
 
-<a href="https://github.com/facebook/react/blob/3ddbedd0520a9738d8c3c7ce0268542e02f9738a/packages/react-dom/src/client/ReactDOMRoot.js#L167" target="_blank">ReactDOM.createRoot</a>返回 ReactDOMRoot 对象。
+\$\$typeof 是 Symbol 类型，用于标识这个对象是 React Element。
+
+**type**
+
+type 表示 React 元素的类型，类组件和函数组件的 type 就是它们自己本身，原生 HTML 标签的 type 是字符串，例如"div", "span"。
+
+## 渲染 React 元素
+
+无论是第一次渲染，还是更新组件，React 的工作都需要经历两个阶段：
+
+1. 渲染阶段：这一阶段的工作主要由协调器完成，主要是计算出需要变化的内容。第一次渲染可以理解为与空白内容进行比较。
+2. 提交阶段：渲染器根据渲染阶段的输出去调整 DOM。
+
+<figure>
+<img src="/assets/images/element_instance_dom.png" />
+</figure>
+
+## stack 协调器
+
+在介绍新版本的协调器之前，我们先来了解一下 React16 之前使用的 stack 协调器，stack 协调器的处理方式是一个递归的过程，这样有一个很大的缺点，那就是不能中断此过程来让主线程来处理其他更高优先级的任务。如果这个过程的时间比较长，那么可能会引起掉帧等问题。下面这张图可以很形象的描述 stack 协调器的处理方式。
+
+<figure>
+<img src="/assets/images/stack_reconciler.png" />
+</figure>
+
+## fiber 协调器
+
+fiber 协调器解决了 stack 协调器的问题，它可以把任务切片，在处理任务的过程中可以中断去执行其他高优先级的任务。
+
+<figure>
+<img src="/assets/images/fiber_reconciler1.png" />
+</figure>
+
+<figure>
+<img src="/assets/images/fiber_reconciler2.png" />
+</figure>
+
+fiber 协调器主要依赖 fiber 架构，fiber 架构中每一个 React 元素都有一个对应的 FiberNode，一个 FiberNode 就代表了一个小的任务单元。
+
+在调用<a href="https://github.com/facebook/react/blob/3ddbedd0520a9738d8c3c7ce0268542e02f9738a/packages/react-dom/src/client/ReactDOMRoot.js#L93" target="_blank">root.render</a>后，React 并没有立即执行第一个任务单元，而是把这个任务交给调度器去安排。
+
+### FiberNode 结构
+
+现在我们来看看 FiberNode 的主要结构，在<a href="https://github.com/facebook/react/blob/3ddbedd0520a9738d8c3c7ce0268542e02f9738a/packages/react-reconciler/src/ReactFiber.old.js#L119" target="_blank">源码</a>中可以查看完整的结构。
+
+```javascript
+const fiberNode = {
+  tag: null,
+  type: null,
+  key: null,
+  stateNode: null,
+
+  child: null,
+  sibling: null,
+  return: null,
+
+  alternate: null,
+};
+```
+
+**tag**
+
+tag 给 fiber 定义了一个标签，React 定义了很多种标签，每一种标签都有不同的处理方式。函数组件的`tag=0`，类组件的`tag=1`，在<a href="https://github.com/facebook/react/blob/3ddbedd0520a9738d8c3c7ce0268542e02f9738a/packages/react-reconciler/src/ReactWorkTags.js#L10" target="_blank">源码</a>中查看更多标签。
+
+**type**
+
+type 是 fiber 的类型，函数组件和类组件的 type 就是它们本身，原生组件例如 div 就是字符串`"div"`。
+
+**child, sibing, return**
+
+上面我们说了每一个 React 元素都有一个对应的 fiber，那么这三个属性可以把所有的 fiber 节点都串联起来。`child`指向第一个子节点，`sibing` 指向下一个兄弟节点，`return` 指向父节点。
+
+<figure>
+<img src="/assets/images/fiber_structure.png" />
+</figure>
+
+## 工作循环
+
+在渲染阶段执行任务是以一个循环方式进行的，有同步的工作循环和异步并发式的工作循环，它们大致的代码如下。
+
+```javascript
+function workLoopSync() {
+  while (workInProgress !== null) {
+    performUnitOfWork(workInProgress);
+  }
+}
+
+function workLoopConcurrent() {
+  while (workInProgress !== null && !shouldYield()) {
+    performUnitOfWork(workInProgress);
+  }
+}
+```
+
+**workInProgress**
+
+`workInProgress`表示正在处理的任务，我们看到需要满足`workInProgress !== null`条件才能执行任务，那么第一次渲染时第一个任务是什么呢？还记得我们调用<a href="https://github.com/facebook/react/blob/3ddbedd0520a9738d8c3c7ce0268542e02f9738a/packages/react-dom/src/client/ReactDOMRoot.js#L167" target="_blank">ReactDOM.createRoot</a>创建的 root 对象吗？
+
+`root._internalRoot.current`就保存了一个 fiber，这个 fiber 就是当前的 fiber root，现在我们要创建新的 fiber 树了，那我们就用这个 fiber 创建一个新的 fiber 作为`workInProgress`，<a href="https://github.com/facebook/react/blob/3ddbedd0520a9738d8c3c7ce0268542e02f9738a/packages/react-reconciler/src/ReactFiberWorkLoop.old.js#L1548" target="_blank">源码</a>。
+
+**performUnitOfWork**
+
+这个函数的大致结构如下，<a href="https://github.com/facebook/react/blob/3ddbedd0520a9738d8c3c7ce0268542e02f9738a/packages/react-reconciler/src/ReactFiberWorkLoop.old.js#L1907" target="_blank">源码</a>
+
+```javascript
+function performUnitOfWork(unitOfWork) {
+  const current = unitOfWork.alternate;
+
+  let next = beginWork(current, unitOfWork);
+
+  if (next === null) {
+    completeUnitOfWork(unitOfWork);
+  } else {
+    workInProgress = next;
+  }
+}
+```
+
+这个函数的执行主要包含 3 个阶段。
+
+1. beginWork。
+2. completeUnitOfWork。
+3. completeWork，_这个函数是在 completeWork 中调用的_。
+
+**beginWork**
 
 ## React 任务调度
-
-在调用<a href="https://github.com/facebook/react/blob/3ddbedd0520a9738d8c3c7ce0268542e02f9738a/packages/react-dom/src/client/ReactDOMRoot.js#L93" target="_blank">root.render</a>后，React 并没有立即执行渲染，而是把渲染函数当成回调函数交给调度器去安排。
 
 调度器接收到一个<a href="https://github.com/facebook/react/blob/3ddbedd0520a9738d8c3c7ce0268542e02f9738a/packages/scheduler/src/forks/Scheduler.js#L308" target="_blank">安排请求</a>时，会根据提供的优先级创建一个新的任务，然后将这个任务放进任务队列中等待后续的安排。
 
@@ -117,4 +233,10 @@ React 的任务分为 5 个优先级，由高到低依次是：
 
 进入工作循环后从任务队列中取出优先级最高的任务准备执行，为什么说准备执行呢？因为真正执行任务是要满足一些<a href="https://github.com/facebook/react/blob/3ddbedd0520a9738d8c3c7ce0268542e02f9738a/packages/scheduler/src/forks/Scheduler.js#L197" target="_blank">条件</a>的，如果执行任务已经超过了一个限制时间，那么应该把主线程的控制权让给更优先的任务，例如浏览器绘制，用户输入等等。
 
-## 协调
+## 渲染/协调
+
+无论是第一次渲染还是后续修改 props/state 等引发的更新，都会经历两个阶段：
+
+1. 渲染/协调阶段：这一个阶段构建了新的 fiber 树，并且对比当前的 fiber 树找出不同，这一个阶段是可以中断去做其他重要的任务。
+2. 提交阶段：根据上一个阶段得出的对比结果，更新 DOM，这一个阶段不能中断。
+   $$
