@@ -10,60 +10,49 @@ tags:
   - React
 ---
 
-本文分析基于<a href="https://github.com/facebook/react/tree/3ddbedd0520a9738d8c3c7ce0268542e02f9738a" target="_blank">React 18 版本</a>。
+说明：本文分析基于<a href="https://github.com/facebook/react/tree/3ddbedd0520a9738d8c3c7ce0268542e02f9738a" target="_blank">React 18 版本</a>。
 
-## React 源码的架构
+## 总览 React 源码
 
-React 的源码的核心主要在下面这几个包。
+React 源码由多个 package 组成，我们下面来介绍几个核心的 package。
 
-### React Core
+### react
 
-<a href="https://github.com/facebook/react/tree/3ddbedd0520a9738d8c3c7ce0268542e02f9738a/packages/react" target="_blank">React 核心包</a>包含了定义 React 组件的 API，例如`React.createElement`，它不依赖与任何平台。
+<a href="https://github.com/facebook/react/tree/3ddbedd0520a9738d8c3c7ce0268542e02f9738a/packages/react" target="_blank">react</a>定义了 React 的顶层 API，例如`React.Component, React.createElement, React.Suspense`以及 Hook 等等。
 
-### Renderer
+### renderer
 
-渲染器管理了一棵由 React 元素组成的树，然后在不同的平台将这棵树渲染成不同的内容。
+不同的 render 可以将 React 组件渲染成不同的内容，它们运行在不同的平台上。
 
-- <a href="https://github.com/facebook/react/tree/3ddbedd0520a9738d8c3c7ce0268542e02f9738a/packages/react-dom" target="_blank">React DOM Renderer</a>渲染成 DOM。
+- <a href="https://github.com/facebook/react/tree/3ddbedd0520a9738d8c3c7ce0268542e02f9738a/packages/react-dom" target="_blank">react-dom</a>渲染成 DOM。
 
-- <a href="https://github.com/facebook/react/tree/3ddbedd0520a9738d8c3c7ce0268542e02f9738a/packages/react-native-renderer" target="_blank">React Native Renderer</a>渲染成 Native 视图。
+- <a href="https://github.com/facebook/react/tree/3ddbedd0520a9738d8c3c7ce0268542e02f9738a/packages/react-native-renderer" target="_blank">react-native-renderer</a>渲染成 Native 视图。
 
-- <a href="https://github.com/facebook/react/tree/3ddbedd0520a9738d8c3c7ce0268542e02f9738a/packages/react-test-renderer" target="_blank">React Test Renderer</a>渲染成 JSON 树。
+- <a href="https://github.com/facebook/react/tree/3ddbedd0520a9738d8c3c7ce0268542e02f9738a/packages/react-test-renderer" target="_blank">react-test-renderer</a>渲染成 JSON 树。
 
-### Reconciler
+- <a href="https://github.com/facebook/react/tree/3ddbedd0520a9738d8c3c7ce0268542e02f9738a/packages/react-art" target="_blank">react-art</a>渲染成矢量图。
 
-前面我们说的渲染器管理了一棵 React 元素树，当组件`props`或者`state`变化时又生成了一棵新的树，如果直接使用新的树渲染，那就太浪费资源了。<a href="https://github.com/facebook/react/tree/3ddbedd0520a9738d8c3c7ce0268542e02f9738a/packages/react-reconciler" target="_blank">协调器</a>会这两棵树之间的差别，然后交给渲染器去高效的更新变化的部分。
+### reconciler
 
-### Scheduler
+在第一次渲染或者需要更新时，<a href="https://github.com/facebook/react/tree/3ddbedd0520a9738d8c3c7ce0268542e02f9738a/packages/react-reconciler" target="_blank">react-reconciler</a>对比当前内容找出变化的部分，然后提供给 renderer 高效地更新渲染内容。
 
-React 的设计理念中会把工作切成一个个小的任务，而且每个任务有优先级。<a href="https://github.com/facebook/react/tree/3ddbedd0520a9738d8c3c7ce0268542e02f9738a/packages/scheduler" target="_blank">调度器</a>就是合理的安排每个任务何时执行，何时能暂停任务，暂停后何时继续完成任务。
+到了这里你可能有一个疑问，第一次渲染跟谁比较呢？答案是跟空白内容进行比较。
 
-## 从一个简单的例子开始
+### scheduler
 
-```jsx
-function Counter() {
-  const [count, setCount] = React.useState(0);
+<a href="https://github.com/facebook/react/tree/3ddbedd0520a9738d8c3c7ce0268542e02f9738a/packages/scheduler" target="_blank">scheduler</a>按照不同的优先级合理的安排任务的执行，还可以中止任务把主线程交给优先级更高的任务。
 
-  const handleClick = () => {
-    setCount(count + 1);
-  };
+## React 基础
 
-  return (
-    <div className="counter">
-      <h1>You clicked {count} times</h1>
-      <button onClick={handleClick}>Click</button>
-    </div>
-  );
-}
+在进入更深的探讨之前，我们有必要了解一些 React 的基础但是很核心的概念。
 
-const container = document.getElementById("root");
-const root = ReactDOM.createRoot(container);
-root.render(<Counter />);
-```
+### React Element
 
-## React 元素
+Element 是 React 中很重要的概念，它是构成 React 应用的最小单元，它可以是 host component（例如 html 的 div，span），可以是 function component，class component，fragment 等等内容。
 
-元素（element）是 React 中很重要的概念，它是构成 React 应用的最小单元。它本质上就是普通的 JavaScript 对象，它描述了你想要看到的内容。元素一旦被创建，那么它就是**不可变**的。
+我们可以通过 JSX，`React.createElement`来创建 element。说到 JSX，我们可以多了解一些关于它的内容。
+
+我们都知道 JSX 依靠 Babel 等工具转换为 JavaScript。在 React17 以前，JSX 会被转换为`React.createElement`，这也是为什么必须要引入
 
 上面的 JSX 创建了 React 元素，React 元素的大致结构如下，在<a href="https://github.com/facebook/react/blob/3ddbedd0520a9738d8c3c7ce0268542e02f9738a/packages/react/src/ReactElement.js#L148" target="_blank">源码</a>中可以看到它的完整结构。
 
