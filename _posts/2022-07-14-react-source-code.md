@@ -10,7 +10,7 @@ tags:
   - React
 ---
 
-说明：本文分析基于<a href="https://github.com/facebook/react/tree/3ddbedd0520a9738d8c3c7ce0268542e02f9738a" target="_blank">React 18 版本</a>。
+说明：本文分析基于<a href="https://github.com/facebook/react/tree/3ddbedd0520a9738d8c3c7ce0268542e02f9738a" target="_blank">React 18 版本</a>，而且只讨论 React 运行浏览器这一个平台上的情况。
 
 ## 总览 React 源码
 
@@ -48,54 +48,183 @@ React 源码由多个 package 组成，我们下面来介绍几个核心的 pack
 
 ### React Element
 
-Element 是 React 中很重要的概念，它是构成 React 应用的最小单元，它可以是 host component（例如 html 的 div，span），可以是 function component，class component，fragment 等等内容。
+元素是 React 中很重要的概念，它是构成 React 应用的最小单元，它可以是 host component（例如 html 的 div，span），可以是 function component，class component，fragment 等等内容。
 
-我们可以通过 JSX，`React.createElement`来创建 element。说到 JSX，我们可以多了解一些关于它的内容。
+我们可以通过 JSX，`React.createElement`来创建元素。说到 JSX，我们可以多了解一些关于它的内容。
 
-我们都知道 JSX 依靠 Babel 等工具转换为 JavaScript。在 React17 以前，JSX 会被转换为`React.createElement`，这也是为什么必须要引入
+我们都知道 JSX 依靠 Babel 等工具转换为 JavaScript。在 React17 以前，JSX 会被转换为`React.createElement`，这也是为什么必须要引入 react package 的原因。
+
+假设源代码如下：
+
+```jsx
+import React from "react";
+
+function App() {
+  return <h1>Hello world</h1>;
+}
+```
+
+旧的 JSX 转换会转换成下面的结果：
+
+```javascript
+import React from "React";
+
+function App() {
+  return React.createElement("h1", null, "Hello world");
+}
+```
+
+新的 JSX 可以不用引入 react package，会转换为下面的结果：
+
+```jsx
+function App() {
+  return <h1>Hello world</h1>;
+}
+```
+
+```javascript
+// 由编译器自动引入，不允许手动引入
+import { jsx as _jsx } from "react/jsx-runtime";
+
+function App() {
+  return _jsx("h1", { children: "Hello world" });
+}
+```
 
 上面的 JSX 创建了 React 元素，React 元素的大致结构如下，在<a href="https://github.com/facebook/react/blob/3ddbedd0520a9738d8c3c7ce0268542e02f9738a/packages/react/src/ReactElement.js#L148" target="_blank">源码</a>中可以看到它的完整结构。
 
-```javascript
-reactElement = {
+```
+{
   $$typeof,
   type,
   key,
   ref,
   props,
-};
+}
 ```
 
 **$$typeof**
 
-\$\$typeof 是 Symbol 类型，用于标识这个对象是 React Element。
+\$\$typeof 的值是`Symbol(react.element)`，用于标识这个 object 是 React 元素。
 
 **type**
 
-type 表示 React 元素的类型，类组件和函数组件的 type 就是它们自己本身，原生 HTML 标签的 type 是字符串，例如"div", "span"。
+type 是 React 元素的类型。
 
-## 渲染 React 元素
+**key**
 
-无论是第一次渲染，还是更新组件，React 的工作都需要经历两个阶段：
+给 React 元素添加一个唯一标识可以帮助 React 区分同一个列表中的元素，这对于添加子项，删除子项，给子项排序是非常重要的。
 
-1. 渲染阶段：这一阶段的工作主要由协调器完成，主要是计算出需要变化的内容。第一次渲染可以理解为与空白内容进行比较。
-2. 提交阶段：渲染器根据渲染阶段的输出去调整 DOM。
+**props**
+
+`props`中保存了元素的一些属性。
+
+下面我列出了一些常见类型组件会创建出什么样的 React 元素。
+
+```html
+<h1>Hello world from <i>React</i></h1>
+```
+
+```javascript
+{
+  $$typeof: Symbol(react.element),
+  type: "h1",
+  key: null,
+  ref: null,
+  props: {
+    children: [
+      "Hello World from ",
+      {
+        $$typeof: Symbol(react.element),
+        type: "i",
+        key: null,
+        ref: null,
+        props: {
+          children: "React"
+        }
+      }
+    ]
+  }
+}
+```
+
+```jsx
+function App() {
+  return <h1>Hello world</h1>;
+}
+
+class App extends React.Component {
+  render() {
+    return <h1>Hello world</h1>;
+  }
+}
+```
+
+```javascript
+{
+  $$typeof: Symbol(react.element),
+  type: App,
+  key: null,
+  ref: null,
+  props: {}
+}
+```
+
+## 渲染组件的三个步骤
+
+把组件渲染到屏幕上显示会经历下面三个步骤：
+
+1. 触发渲染
+2. 渲染组件
+3. 提交到 DOM
 
 <figure>
-<img src="/assets/images/element_instance_dom.png" />
+<img src="/assets/images/render_commit.png" />
 </figure>
 
-## stack 协调器
+我们先简单说明一下每个阶段会做哪些事情，后面我们会针对渲染和提交阶段做详细的分析。
 
-在介绍新版本的协调器之前，我们先来了解一下 React16 之前使用的 stack 协调器，stack 协调器的处理方式是一个递归的过程，这样有一个很大的缺点，那就是不能中断此过程来让主线程来处理其他更高优先级的任务。如果这个过程的时间比较长，那么可能会引起掉帧等问题。下面这张图可以很形象的描述 stack 协调器的处理方式。
+### 触发渲染
+
+有两种方式可以触发渲染：
+
+1. 初次渲染
+2. 组件状态改变后重新渲染
+
+### 渲染组件
+
+渲染组件的过程就是调用组件的过程，初次渲染是从根组件开始，后续的渲染从状态改变的组件开始。调用的过程是递归的，组件返回了子组件，那么会继续渲染子组件。
+
+在初次渲染时会创建 DOM 节点，在重新渲染时 React 会计算出与上一次渲染的差别，这一步我们不会使用比较信息做任何事情，那是下一个阶段的工作。
+
+渲染的过程可能会被 React 暂停或者重新启动，我们会在详细分析中解释 React 为什么这样做。
+
+**非常重要！！！**渲染的过程应该是纯净没有任何副作用的，那么意味着：
+
+1. 相同的输入要有相同的输出
+2. 不应该修改渲染前的任何变量
+
+### 提交修改到 DOM
+
+提交阶段会修改 DOM，初次渲染会使用`appendChild()`，重新渲染时只修改最小变化的部分，这个信息在前面的渲染阶段已经计算好了。在修改 DOM 后浏览器就可以重新进行绘制了，然后就能呈现在屏幕上了。
+
+## 渲染阶段
+
+渲染阶段的核心工作由协调器完成，在 React16 以前使用的是 stack 协调器。
+
+### stack 协调器
+
+我们不探究这个旧的协调器是如何实现的，下面这张图可以很形象的描述它的工作机制，它是一个同步的递归处理过程。这样就有很大的问题，那就是这个同步的过程无法被中断。
 
 <figure>
 <img src="/assets/images/stack_reconciler.png" />
 </figure>
 
-## fiber 协调器
+为了解决 stack 协调器带来的各种问题，React 在 React16 中实现了新的 fiber 协调器。
 
-fiber 协调器解决了 stack 协调器的问题，它可以把任务切片，在处理任务的过程中可以中断去执行其他高优先级的任务。
+### fiber 协调器
+
+fiber 协调器把渲染任务切片，在处理完一个切片的任务后可以交出主线程的控制权，如果这时候有优先级更高的任务，那么可以先去执行它。
 
 <figure>
 <img src="/assets/images/fiber_reconciler1.png" />
@@ -105,9 +234,7 @@ fiber 协调器解决了 stack 协调器的问题，它可以把任务切片，�
 <img src="/assets/images/fiber_reconciler2.png" />
 </figure>
 
-fiber 协调器主要依赖 fiber 架构，fiber 架构中每一个 React 元素都有一个对应的 FiberNode，一个 FiberNode 就代表了一个小的任务单元。
-
-在调用<a href="https://github.com/facebook/react/blob/3ddbedd0520a9738d8c3c7ce0268542e02f9738a/packages/react-dom/src/client/ReactDOMRoot.js#L93" target="_blank">root.render</a>后，React 并没有立即执行第一个任务单元，而是把这个任务交给调度器去安排。
+那么 fiber 是什么呢？
 
 ### FiberNode 结构
 
