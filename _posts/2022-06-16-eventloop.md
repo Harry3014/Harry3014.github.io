@@ -38,7 +38,7 @@ printHello();
 
 事件循环的概念就是 JavaScript 引擎重复等待任务然后执行任务的这个过程。
 
-这里说的任务也可以称为宏任务，例如运行 script 脚本，setTimeout 回调，ajax 的响应处理，dom 事件处理等都是宏任务。
+这里说的任务也可以称为宏任务，例如运行 script 脚本，setTimeout 回调，ajax 的响应处理，dom 事件处理，postMessage，MessageChannel 等都是宏任务。
 
 与宏任务对应的还有一种任务叫微任务。微任务一般由我们的代码创建，例如 promise 的 then/catch/finally，或者 queueMicrotask 函数添加的微任务。
 

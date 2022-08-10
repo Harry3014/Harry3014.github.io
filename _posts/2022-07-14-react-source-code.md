@@ -214,17 +214,21 @@ class App extends React.Component {
 
 ### stack 协调器
 
-我们不探究这个旧的协调器是如何实现的，下面这张图可以很形象的描述它的工作机制，它是一个同步的递归处理过程。这样就有很大的问题，那就是这个同步的过程无法被中断。
+我们不探究这个旧的协调器是如何实现的，下面这张图可以很形象的描述它的工作机制，它有一些缺点：它是同步的不能中断，不能将任务切片，假设一次性需要处理的任务过多，可能会导致掉帧。
 
 <figure>
 <img src="/assets/images/stack_reconciler.png" />
 </figure>
 
-为了解决 stack 协调器带来的各种问题，React 在 React16 中实现了新的 fiber 协调器。
-
 ### fiber 协调器
 
-fiber 协调器把渲染任务切片，在处理完一个切片的任务后可以交出主线程的控制权，如果这时候有优先级更高的任务，那么可以先去执行它。
+我们来看看比较理想的情况是怎样的。
+
+- 能够把任务切片
+- 能够暂停任务，也能够在后续恢复任务的执行
+- 能够区分任务的优先级，让优先级高的任务先执行
+
+下面的图就描述了 fiber 协调器的工作原理，在执行了一个切片后的任务后，可以交出主线程的控制权去执行其他优先级高的任务。
 
 <figure>
 <img src="/assets/images/fiber_reconciler1.png" />
@@ -234,46 +238,56 @@ fiber 协调器把渲染任务切片，在处理完一个切片的任务后可�
 <img src="/assets/images/fiber_reconciler2.png" />
 </figure>
 
-那么 fiber 是什么呢？
+那么 fiber 到底是什么呢？fiber 就是切片任务的抽象结构，就是模拟原来 stack 协调器调用栈中一个一个 stack frame，但是 fiber 可以由 React 来调度什么时候暂停或者中止任务。
 
-### FiberNode 结构
+### fiber 的数据结构
 
-现在我们来看看 FiberNode 的主要结构，在<a href="https://github.com/facebook/react/blob/3ddbedd0520a9738d8c3c7ce0268542e02f9738a/packages/react-reconciler/src/ReactFiber.old.js#L119" target="_blank">源码</a>中可以查看完整的结构。
+下面是 fiber 的大致数据结构，在<a href="https://github.com/facebook/react/blob/3ddbedd0520a9738d8c3c7ce0268542e02f9738a/packages/react-reconciler/src/ReactFiber.old.js#L119" target="_blank">源码</a>中可以查看完整的结构。
 
 ```javascript
-const fiberNode = {
-  tag: null,
-  type: null,
-  key: null,
-  stateNode: null,
+{
+  tag,
+  key,
+  type,
+  stateNode,
 
-  child: null,
-  sibling: null,
-  return: null,
+  child,
+  sibling,
+  return,
 
-  alternate: null,
-};
+  alternate,
+}
 ```
 
 **tag**
 
-tag 给 fiber 定义了一个标签，React 定义了很多种标签，每一种标签都有不同的处理方式。函数组件的`tag=0`，类组件的`tag=1`，在<a href="https://github.com/facebook/react/blob/3ddbedd0520a9738d8c3c7ce0268542e02f9738a/packages/react-reconciler/src/ReactWorkTags.js#L10" target="_blank">源码</a>中查看更多标签。
+tag 表示 fiber 的类型，它决定了这个 fiber 应该怎样处理，React 定义了很多种类型，比如`FunctionComponent, ClassComponent, HostComponent`。在<a href="https://github.com/facebook/react/blob/3ddbedd0520a9738d8c3c7ce0268542e02f9738a/packages/react-reconciler/src/ReactWorkTags.js#L10" target="_blank">源码</a>中查看更多标签。
 
-**type**
+**key, type**
 
-type 是 fiber 的类型，函数组件和类组件的 type 就是它们本身，原生组件例如 div 就是字符串`"div"`。
+key 和 type 都是直接从 React 元素中复制过去的。
+
+**stateNode**
+
+如果是类组件，那么 stateNode 就是创建的实例，如果是 host component，那么就是创建的 DOM 节点。
 
 **child, sibing, return**
 
-上面我们说了每一个 React 元素都有一个对应的 fiber，那么这三个属性可以把所有的 fiber 节点都串联起来。`child`指向第一个子节点，`sibing` 指向下一个兄弟节点，`return` 指向父节点。
+这三个属性可以将 fiber 串联起来形成 fiber tree。`child`指向第一个子节点，`sibing` 指向下一个兄弟节点，`return` 指向父节点。
 
 <figure>
 <img src="/assets/images/fiber_structure.png" />
 </figure>
 
-## 工作循环
+**alternate**
 
-在渲染阶段执行任务是以一个循环方式进行的，有同步的工作循环和异步并发式的工作循环，它们大致的代码如下。
+fiber 架构采用了 double buffering，一个元素在内存中可能存在两个对应的 fiber，一个是当前显示内容对应的 current，一个是即将需要处理的 workInProgress，用伪代码来表示即：`current.alternate === workInProgress`，`workInProgress.alternate === current`。
+
+### 工作循环
+
+在第一次渲染时我们要给每个元素创建对应的 fiber，在后续发生更新时我们要找出变化的部分。
+
+无论是第几次渲染，React 都使用通用的处理方式——工作循环，有同步的工作循环和异步并发式的工作循环，它们大致的代码如下。
 
 ```javascript
 function workLoopSync() {
@@ -293,7 +307,7 @@ function workLoopConcurrent() {
 
 `workInProgress`表示正在处理的任务，我们看到需要满足`workInProgress !== null`条件才能执行任务，那么第一次渲染时第一个任务是什么呢？还记得我们调用<a href="https://github.com/facebook/react/blob/3ddbedd0520a9738d8c3c7ce0268542e02f9738a/packages/react-dom/src/client/ReactDOMRoot.js#L167" target="_blank">ReactDOM.createRoot</a>创建的 root 对象吗？
 
-`root._internalRoot.current`就保存了一个 fiber，这个 fiber 就是当前的 fiber root，现在我们要创建新的 fiber 树了，那我们就用这个 fiber 创建一个新的 fiber 作为`workInProgress`，<a href="https://github.com/facebook/react/blob/3ddbedd0520a9738d8c3c7ce0268542e02f9738a/packages/react-reconciler/src/ReactFiberWorkLoop.old.js#L1548" target="_blank">源码</a>。
+`root._internalRoot.current`就保存了一个 fiber，这个 fiber 叫 HostRoot，现在我们要创建新的 fiber 树了，那我们就用这个 fiber 创建一个新的 fiber 作为`workInProgress`，<a href="https://github.com/facebook/react/blob/3ddbedd0520a9738d8c3c7ce0268542e02f9738a/packages/react-reconciler/src/ReactFiberWorkLoop.old.js#L1548" target="_blank">源码</a>。
 
 **performUnitOfWork**
 
@@ -313,11 +327,12 @@ function performUnitOfWork(unitOfWork) {
 }
 ```
 
-这个函数的执行主要包含 3 个阶段。
+每一个任务都会依次调用下面这几个函数。
 
-1. beginWork。
-2. completeUnitOfWork。
-3. completeWork，_这个函数是在 completeWork 中调用的_。
+1. performUnitOfWork
+2. beginWork
+3. completeWork，_这个函数是在 completeWork 中调用的_
+4. completeUnitOfWork
 
 **beginWork**
 
@@ -348,11 +363,3 @@ React 的任务分为 5 个优先级，由高到低依次是：
 在浏览器环境中如果支持`MessageChannel`，那么可以就可以通过`MessagePort.postMessage`发送一条消息，然后`MessagePort.onMessage`在收到消息后进入工作循环，如果不支持，那么就通过`setTimeout`安排一个 0 秒后的定时任务。<a href="https://github.com/facebook/react/blob/3ddbedd0520a9738d8c3c7ce0268542e02f9738a/packages/scheduler/src/forks/Scheduler.js#L569">源码</a>中说明了为什么优先使用`MessageChannel`，因为在<a href="https://html.spec.whatwg.org/multipage/timers-and-user-prompts.html#timers" target="_blank">HTML5 标准</a>中注明了在嵌套了 5 次定时任务后，至少会有 4ms 的延时。
 
 进入工作循环后从任务队列中取出优先级最高的任务准备执行，为什么说准备执行呢？因为真正执行任务是要满足一些<a href="https://github.com/facebook/react/blob/3ddbedd0520a9738d8c3c7ce0268542e02f9738a/packages/scheduler/src/forks/Scheduler.js#L197" target="_blank">条件</a>的，如果执行任务已经超过了一个限制时间，那么应该把主线程的控制权让给更优先的任务，例如浏览器绘制，用户输入等等。
-
-## 渲染/协调
-
-无论是第一次渲染还是后续修改 props/state 等引发的更新，都会经历两个阶段：
-
-1. 渲染/协调阶段：这一个阶段构建了新的 fiber 树，并且对比当前的 fiber 树找出不同，这一个阶段是可以中断去做其他重要的任务。
-2. 提交阶段：根据上一个阶段得出的对比结果，更新 DOM，这一个阶段不能中断。
-   $$
