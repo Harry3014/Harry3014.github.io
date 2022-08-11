@@ -327,12 +327,18 @@ function performUnitOfWork(unitOfWork) {
 }
 ```
 
-每一个任务都会依次调用下面这几个函数。
+我们来看渲染下面这个示例时 workLoop 是怎么运作的。
 
-1. performUnitOfWork
-2. beginWork
-3. completeWork，_这个函数是在 completeWork 中调用的_
-4. completeUnitOfWork
+```html
+<h1>
+  <span>hello</span>
+  <i>world</i>
+</h1>
+```
+
+<figure>
+<img src="/assets/images/reconciler_workloop.png" />
+</figure>
 
 **beginWork**
 
