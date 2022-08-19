@@ -303,6 +303,8 @@ function workLoopConcurrent() {
 }
 ```
 
+它们唯一的区别是：在执行任务前是否调用<a href="https://github.com/facebook/react/blob/3ddbedd0520a9738d8c3c7ce0268542e02f9738a/packages/scheduler/src/forks/Scheduler.js#L440" target="_blank">shouldYield</a>，shouldYield 会检查主线程占据的时间是否已经超过了阈值，如果超过则交出主线程控制权方便执行其他高优先级的任务，例如浏览器绘制或者用户输入等等。
+
 **workInProgress**
 
 `workInProgress`表示正在处理的任务，我们看到需要满足`workInProgress !== null`条件才能执行任务，那么第一次渲染时第一个任务是什么呢？还记得我们调用<a href="https://github.com/facebook/react/blob/3ddbedd0520a9738d8c3c7ce0268542e02f9738a/packages/react-dom/src/client/ReactDOMRoot.js#L167" target="_blank">ReactDOM.createRoot</a>创建的 root 对象吗？
@@ -327,7 +329,9 @@ function performUnitOfWork(unitOfWork) {
 }
 ```
 
-我们来看渲染下面这个示例时 workLoop 是怎么运作的。
+**beginWork**
+
+我们来看渲染下面这个示例，进入工作循环后调用栈的变化。
 
 ```html
 <h1>
@@ -340,7 +344,12 @@ function performUnitOfWork(unitOfWork) {
 <img src="/assets/images/reconciler_workloop.png" />
 </figure>
 
-**beginWork**
+我们可以总结出任务的处理顺序：
+
+- 从`HostRoot`开始，`beginWork`返回最顶层 React 元素`h1`对应的 fiber
+- `beginWork`处理`h1`，返回第一个子节点`span`
+- `beginWork`处理`span`，没有子节点返回 null
+- `completeUnitOfWork`处理`span`
 
 ## React 任务调度
 
