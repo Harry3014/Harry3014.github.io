@@ -311,9 +311,18 @@ function workLoopConcurrent() {
 
 `root._internalRoot.current`就保存了一个 fiber，这个 fiber 叫 HostRoot，现在我们要创建新的 fiber 树了，那我们就用这个 fiber 创建一个新的 fiber 作为`workInProgress`，<a href="https://github.com/facebook/react/blob/3ddbedd0520a9738d8c3c7ce0268542e02f9738a/packages/react-reconciler/src/ReactFiberWorkLoop.old.js#L1548" target="_blank">源码</a>。
 
+**fiber 处理流程概览**
+
+下面这四个函数概括了处理一个 fiber 的流程。
+
+- <a href="https://github.com/facebook/react/blob/3ddbedd0520a9738d8c3c7ce0268542e02f9738a/packages/react-reconciler/src/ReactFiberWorkLoop.old.js#L1907" target="_blank">performUnitOfWork</a>
+- <a href="https://github.com/facebook/react/blob/3ddbedd0520a9738d8c3c7ce0268542e02f9738a/packages/react-reconciler/src/ReactFiberBeginWork.old.js#L3830" target="_blank">beginWork</a>
+- <a href="https://github.com/facebook/react/blob/3ddbedd0520a9738d8c3c7ce0268542e02f9738a/packages/react-reconciler/src/ReactFiberWorkLoop.old.js#L1935" target="_blank">completeUnitOfWork</a>
+- <a href="https://github.com/facebook/react/blob/3ddbedd0520a9738d8c3c7ce0268542e02f9738a/packages/react-reconciler/src/ReactFiberCompleteWork.old.js#L850" target="_blank">completeWork</a>
+
 **performUnitOfWork**
 
-这个函数的大致结构如下，<a href="https://github.com/facebook/react/blob/3ddbedd0520a9738d8c3c7ce0268542e02f9738a/packages/react-reconciler/src/ReactFiberWorkLoop.old.js#L1907" target="_blank">源码</a>
+下面的代码是精简过的，但是也可以表示此函数的核心内容。
 
 ```javascript
 function performUnitOfWork(unitOfWork) {
@@ -329,27 +338,104 @@ function performUnitOfWork(unitOfWork) {
 }
 ```
 
-**beginWork**
+调用`beginWork`后如果有返回值，那么下一个任务就是这个返回的 fiber，普通情况下返回 child fiber，如果没有返回值则调用 `completeUnitOfWork`，我们先不详细的说明 beginWork 做了什么内容，先来看看`completeUnitOfWork`做了什么。
 
-我们来看渲染下面这个示例，进入工作循环后调用栈的变化。
+**completeUnitOfWork**
 
-```html
-<h1>
-  <span>hello</span>
-  <i>world</i>
-</h1>
+与`performUnitOfWork`一样，下面的代码是精简过的。
+
+```javascript
+function completeUnitOfWork(unitOfWork) {
+  // Attempt to complete the current unit of work, then move to the next
+  // sibling. If there are no more siblings, return to the parent fiber.
+  let completedWork = unitOfWork;
+  do {
+    const current = completedWork.alternate;
+    const returnFiber = completedWork.return;
+
+    // Check if the work completed or if something threw.
+    if (completedCondition) {
+      const next = completeWork(current, completedWork);
+
+      if (next !== null) {
+        // Completing this fiber spawned new work. Work on that next.
+        workInProgress = next;
+        return;
+      }
+    } else {
+      // This fiber did not complete because something threw.
+      const next = unwind(current, completedWork);
+
+      if (next !== null) {
+        workInProgress = next;
+        return;
+      }
+    }
+
+    const siblingFiber = completedWork.sibling;
+    if (siblingFiber !== null) {
+      // If there is more work to do in this returnFiber, do that next.
+      workInProgress = siblingFiber;
+      return;
+    }
+    // Otherwise, return to the parent
+    completedWork = returnFiber;
+    // Update the next thing we're working on in case something throws.
+    workInProgress = completedWork;
+  } while (completedWork !== null);
+}
 ```
 
+代码中的注释都是 react 源码中的原文，"Attempt to complete the current unit of work, then move to the next sibling. If there are no more siblings, return to the parent fiber."。这一句注释已经能够说明`completeUnitOfWork`，尝试完成当前的这个任务，如果有兄弟节点，则下一个要处理的任务就是兄弟节点，否则返回父 fiber。
+
+**示例**
+
+假设有下面这样一颗 fiber 树。
+
 <figure>
-<img src="/assets/images/reconciler_workloop.png" />
+<img src="/assets/images/performUnitOfWork.png" />
 </figure>
 
-我们可以总结出任务的处理顺序：
+那么这四个函数的执行过程应该如下。
 
-- 从`HostRoot`开始，`beginWork`返回最顶层 React 元素`h1`对应的 fiber
-- `beginWork`处理`h1`，返回第一个子节点`span`
-- `beginWork`处理`span`，没有子节点返回 null
-- `completeUnitOfWork`处理`span`
+```javascript
+workInProgress = HostRoot;
+performUnitOfWork(HostRoot);
+beginWork(HostRoot);
+
+next = App;
+workInProgress = App;
+performUnitOfWork(App);
+beginWork(App);
+
+next = Header;
+workInProgress = Header;
+performUnitOfWork(Header);
+beginWork(Header);
+
+next = null;
+completedWork = Header;
+completeUnitOfWork(Header);
+completeWork(Header);
+
+next = Content;
+workInProgress = Content;
+performUnitOfWork(Content);
+beginWork(Content);
+
+next = null;
+completedWork = Content;
+completeUnitOfWork(Content);
+completeWork(Content);
+
+next = null;
+completedWork = App;
+completeWork(App);
+
+next = null;
+completedWork = HostRoot;
+completeWork(HostRoot);
+```
 
 ## React 任务调度
 
