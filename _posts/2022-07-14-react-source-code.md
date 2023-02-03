@@ -338,7 +338,7 @@ function performUnitOfWork(unitOfWork) {
 }
 ```
 
-调用`beginWork`后如果有返回值，那么下一个任务就是这个返回的 fiber，普通情况下返回 child fiber，如果没有返回值则调用 `completeUnitOfWork`，我们先不详细的说明 beginWork 做了什么内容，先来看看`completeUnitOfWork`做了什么。
+调用`beginWork`后如果有返回值，那么下一个任务就是这个返回的 fiber，普通情况下返回 child fiber，如果没有返回值则调用 `completeUnitOfWork`，我们先不详细的说明`beginWork`做了什么内容，先来看看`completeUnitOfWork`做了什么。
 
 **completeUnitOfWork**
 
@@ -436,6 +436,8 @@ next = null;
 completedWork = HostRoot;
 completeWork(HostRoot);
 ```
+
+`beginWork`和`completeWork`才是执行任务单元的核心部分。
 
 ## React 任务调度
 
