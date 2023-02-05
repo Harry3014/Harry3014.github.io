@@ -10,7 +10,7 @@ tags:
   - React
 ---
 
-说明：本文分析基于<a href="https://github.com/facebook/react/tree/3ddbedd0520a9738d8c3c7ce0268542e02f9738a" target="_blank">React 18 版本</a>，而且只讨论 React 运行浏览器这一个平台上的情况。
+说明：本文分析基于<a href="https://github.com/facebook/react/tree/855b77c9bbee347735efcd626dda362db2ffae1d" target="_blank">React 18 版本</a>，而且只讨论 React 运行浏览器这一个平台上的情况。
 
 ## 总览 React 源码
 
@@ -18,29 +18,29 @@ React 源码由多个 package 组成，我们下面来介绍几个核心的 pack
 
 ### react
 
-<a href="https://github.com/facebook/react/tree/3ddbedd0520a9738d8c3c7ce0268542e02f9738a/packages/react" target="_blank">react</a>定义了 React 的顶层 API，例如`React.Component, React.createElement, React.Suspense`以及 Hook 等等。
+<a href="https://github.com/facebook/react/tree/855b77c9bbee347735efcd626dda362db2ffae1d/packages/react" target="_blank">react</a>定义了 React 的顶层 API，例如`React.Component, React.createElement, React.Suspense`以及 Hook 等等。
 
 ### renderer
 
 不同的 render 可以将 React 组件渲染成不同的内容，它们运行在不同的平台上。
 
-- <a href="https://github.com/facebook/react/tree/3ddbedd0520a9738d8c3c7ce0268542e02f9738a/packages/react-dom" target="_blank">react-dom</a>渲染成 DOM。
+- <a href="https://github.com/facebook/react/tree/855b77c9bbee347735efcd626dda362db2ffae1d/packages/react-dom" target="_blank">react-dom</a>渲染成 DOM。
 
-- <a href="https://github.com/facebook/react/tree/3ddbedd0520a9738d8c3c7ce0268542e02f9738a/packages/react-native-renderer" target="_blank">react-native-renderer</a>渲染成 Native 视图。
+- <a href="https://github.com/facebook/react/tree/855b77c9bbee347735efcd626dda362db2ffae1d/packages/react-native-renderer" target="_blank">react-native-renderer</a>渲染成 Native 视图。
 
-- <a href="https://github.com/facebook/react/tree/3ddbedd0520a9738d8c3c7ce0268542e02f9738a/packages/react-test-renderer" target="_blank">react-test-renderer</a>渲染成 JSON 树。
+- <a href="https://github.com/facebook/react/tree/855b77c9bbee347735efcd626dda362db2ffae1d/packages/react-test-renderer" target="_blank">react-test-renderer</a>渲染成 JSON 树。
 
-- <a href="https://github.com/facebook/react/tree/3ddbedd0520a9738d8c3c7ce0268542e02f9738a/packages/react-art" target="_blank">react-art</a>渲染成矢量图。
+- <a href="https://github.com/facebook/react/tree/855b77c9bbee347735efcd626dda362db2ffae1d/packages/react-art" target="_blank">react-art</a>渲染成矢量图。
 
 ### reconciler
 
-在第一次渲染或者需要更新时，<a href="https://github.com/facebook/react/tree/3ddbedd0520a9738d8c3c7ce0268542e02f9738a/packages/react-reconciler" target="_blank">react-reconciler</a>对比当前内容找出变化的部分，然后提供给 renderer 高效地更新渲染内容。
+在第一次渲染或者需要更新时，<a href="https://github.com/facebook/react/tree/855b77c9bbee347735efcd626dda362db2ffae1d/packages/react-reconciler" target="_blank">react-reconciler</a>对比当前内容找出变化的部分，然后提供给 renderer 高效地更新渲染内容。
 
 到了这里你可能有一个疑问，第一次渲染跟谁比较呢？答案是跟空白内容进行比较。
 
 ### scheduler
 
-<a href="https://github.com/facebook/react/tree/3ddbedd0520a9738d8c3c7ce0268542e02f9738a/packages/scheduler" target="_blank">scheduler</a>按照不同的优先级合理的安排任务的执行，还可以中止任务把主线程交给优先级更高的任务。
+<a href="https://github.com/facebook/react/tree/855b77c9bbee347735efcd626dda362db2ffae1d/packages/scheduler" target="_blank">scheduler</a>按照不同的优先级合理的安排任务的执行，还可以中止任务把主线程交给优先级更高的任务。
 
 ## React 基础
 
@@ -91,7 +91,7 @@ function App() {
 }
 ```
 
-上面的 JSX 创建了 React 元素，React 元素的大致结构如下，在<a href="https://github.com/facebook/react/blob/3ddbedd0520a9738d8c3c7ce0268542e02f9738a/packages/react/src/ReactElement.js#L148" target="_blank">源码</a>中可以看到它的完整结构。
+上面的 JSX 创建了 React 元素，React 元素的大致结构如下，在<a href="https://github.com/facebook/react/blob/855b77c9bbee347735efcd626dda362db2ffae1d/packages/react/src/ReactElement.js#L148" target="_blank">源码</a>中可以看到它的完整结构。
 
 ```
 {
@@ -242,7 +242,7 @@ class App extends React.Component {
 
 ### fiber 的数据结构
 
-下面是 fiber 的大致数据结构，在<a href="https://github.com/facebook/react/blob/3ddbedd0520a9738d8c3c7ce0268542e02f9738a/packages/react-reconciler/src/ReactFiber.old.js#L119" target="_blank">源码</a>中可以查看完整的结构。
+下面是 fiber 的大致数据结构，在<a href="https://github.com/facebook/react/blob/855b77c9bbee347735efcd626dda362db2ffae1d/packages/react-reconciler/src/ReactFiber.js#L134" target="_blank">源码</a>中可以查看完整的结构。
 
 ```javascript
 {
@@ -261,7 +261,7 @@ class App extends React.Component {
 
 **tag**
 
-tag 表示 fiber 的类型，它决定了这个 fiber 应该怎样处理，React 定义了很多种类型，比如`FunctionComponent, ClassComponent, HostComponent`。在<a href="https://github.com/facebook/react/blob/3ddbedd0520a9738d8c3c7ce0268542e02f9738a/packages/react-reconciler/src/ReactWorkTags.js#L10" target="_blank">源码</a>中查看更多标签。
+tag 表示 fiber 的类型，它决定了这个 fiber 应该怎样处理，React 定义了很多种类型，比如`FunctionComponent, ClassComponent, HostComponent`。在<a href="https://github.com/facebook/react/blob/855b77c9bbee347735efcd626dda362db2ffae1d/packages/react-reconciler/src/ReactWorkTags.js#L10" target="_blank">源码</a>中查看更多标签。
 
 **key, type**
 
@@ -303,22 +303,22 @@ function workLoopConcurrent() {
 }
 ```
 
-它们唯一的区别是：在执行任务前是否调用<a href="https://github.com/facebook/react/blob/3ddbedd0520a9738d8c3c7ce0268542e02f9738a/packages/scheduler/src/forks/Scheduler.js#L440" target="_blank">shouldYield</a>，shouldYield 会检查主线程占据的时间是否已经超过了阈值，如果超过则交出主线程控制权方便执行其他高优先级的任务，例如浏览器绘制或者用户输入等等。
+它们唯一的区别是：在执行任务前是否调用<a href="https://github.com/facebook/react/blob/855b77c9bbee347735efcd626dda362db2ffae1d/packages/scheduler/src/forks/Scheduler.js#L487" target="_blank">shouldYield</a>，shouldYield 会检查主线程占据的时间是否已经超过了阈值，如果超过则交出主线程控制权方便执行其他高优先级的任务，例如浏览器绘制或者用户输入等等。
 
 **workInProgress**
 
-`workInProgress`表示正在处理的任务，我们看到需要满足`workInProgress !== null`条件才能执行任务，那么第一次渲染时第一个任务是什么呢？还记得我们调用<a href="https://github.com/facebook/react/blob/3ddbedd0520a9738d8c3c7ce0268542e02f9738a/packages/react-dom/src/client/ReactDOMRoot.js#L167" target="_blank">ReactDOM.createRoot</a>创建的 root 对象吗？
+`workInProgress`表示正在处理的任务，我们看到需要满足`workInProgress !== null`条件才能执行任务，那么第一次渲染时第一个任务是什么呢？还记得我们调用<a href="https://github.com/facebook/react/blob/855b77c9bbee347735efcd626dda362db2ffae1d/packages/react-dom/src/client/ReactDOMRoot.js#L181" target="_blank">ReactDOM.createRoot</a>创建的 root 对象吗？
 
-`root._internalRoot.current`就保存了一个 fiber，这个 fiber 叫 HostRoot，现在我们要创建新的 fiber 树了，那我们就用这个 fiber 创建一个新的 fiber 作为`workInProgress`，<a href="https://github.com/facebook/react/blob/3ddbedd0520a9738d8c3c7ce0268542e02f9738a/packages/react-reconciler/src/ReactFiberWorkLoop.old.js#L1548" target="_blank">源码</a>。
+`root._internalRoot.current`就保存了一个 fiber，这个 fiber 叫 HostRoot，现在我们要创建新的 fiber 树了，那我们就用这个 fiber 创建一个新的 fiber 作为`workInProgress`，<a href="https://github.com/facebook/react/blob/855b77c9bbee347735efcd626dda362db2ffae1d/packages/react-reconciler/src/ReactFiberWorkLoop.js#L1738" target="_blank">源码</a>。
 
 **fiber 处理流程概览**
 
 下面这四个函数概括了处理一个 fiber 的流程。
 
-- <a href="https://github.com/facebook/react/blob/3ddbedd0520a9738d8c3c7ce0268542e02f9738a/packages/react-reconciler/src/ReactFiberWorkLoop.old.js#L1907" target="_blank">performUnitOfWork</a>
-- <a href="https://github.com/facebook/react/blob/3ddbedd0520a9738d8c3c7ce0268542e02f9738a/packages/react-reconciler/src/ReactFiberBeginWork.old.js#L3830" target="_blank">beginWork</a>
-- <a href="https://github.com/facebook/react/blob/3ddbedd0520a9738d8c3c7ce0268542e02f9738a/packages/react-reconciler/src/ReactFiberWorkLoop.old.js#L1935" target="_blank">completeUnitOfWork</a>
-- <a href="https://github.com/facebook/react/blob/3ddbedd0520a9738d8c3c7ce0268542e02f9738a/packages/react-reconciler/src/ReactFiberCompleteWork.old.js#L850" target="_blank">completeWork</a>
+- <a href="https://github.com/facebook/react/blob/855b77c9bbee347735efcd626dda362db2ffae1d/packages/react-reconciler/src/ReactFiberWorkLoop.js#L2303" target="_blank">performUnitOfWork</a>
+- <a href="https://github.com/facebook/react/blob/855b77c9bbee347735efcd626dda362db2ffae1d/packages/react-reconciler/src/ReactFiberBeginWork.js#L3936" target="_blank">beginWork</a>
+- <a href="https://github.com/facebook/react/blob/855b77c9bbee347735efcd626dda362db2ffae1d/packages/react-reconciler/src/ReactFiberWorkLoop.js#L2472" target="_blank">completeUnitOfWork</a>
+- <a href="https://github.com/facebook/react/blob/855b77c9bbee347735efcd626dda362db2ffae1d/packages/react-reconciler/src/ReactFiberCompleteWork.js#L872" target="_blank">completeWork</a>
 
 **performUnitOfWork**
 
@@ -441,9 +441,9 @@ completeWork(HostRoot);
 
 ## React 任务调度
 
-调度器接收到一个<a href="https://github.com/facebook/react/blob/3ddbedd0520a9738d8c3c7ce0268542e02f9738a/packages/scheduler/src/forks/Scheduler.js#L308" target="_blank">安排请求</a>时，会根据提供的优先级创建一个新的任务，然后将这个任务放进任务队列中等待后续的安排。
+调度器接收到一个<a href="https://github.com/facebook/react/blob/855b77c9bbee347735efcd626dda362db2ffae1d/packages/scheduler/src/forks/Scheduler.js#L346" target="_blank">安排请求</a>时，会根据提供的优先级创建一个新的任务，然后将这个任务放进任务队列中等待后续的安排。
 
-React 有<a href="https://github.com/facebook/react/blob/3ddbedd0520a9738d8c3c7ce0268542e02f9738a/packages/scheduler/src/forks/Scheduler.js#L72" target="_blank">两个任务队列</a>`taskQueue`和`timeQueue`，`timeQueue`是用于存放延时任务，这两个任务队列都是用<a href="https://github.com/facebook/react/blob/3ddbedd0520a9738d8c3c7ce0268542e02f9738a/packages/scheduler/src/SchedulerMinHeap.js" target="_blank">最小堆</a>实现的优先队列。
+React 有<a href="https://github.com/facebook/react/blob/855b77c9bbee347735efcd626dda362db2ffae1d/packages/scheduler/src/forks/Scheduler.js#L87" target="_blank">两个任务队列</a>`taskQueue`和`timeQueue`，`timeQueue`是用于存放延时任务，这两个任务队列都是用<a href="https://github.com/facebook/react/blob/855b77c9bbee347735efcd626dda362db2ffae1d/packages/scheduler/src/SchedulerMinHeap.js" target="_blank">最小堆</a>实现的优先队列。
 
 ### 任务优先级
 
@@ -457,12 +457,12 @@ React 的任务分为 5 个优先级，由高到低依次是：
 4. LowPriority 低优先级
 5. IdlePriority 空闲
 
-<a href="https://github.com/facebook/react/blob/3ddbedd0520a9738d8c3c7ce0268542e02f9738a/packages/scheduler/src/SchedulerPriorities.js" target="_blank">源码</a>中声明了 6 个优先级，但是<a href="https://github.com/facebook/react/blob/3ddbedd0520a9738d8c3c7ce0268542e02f9738a/packages/scheduler/src/forks/Scheduler.js#L24" target="_blank">实际</a>只使用了 5 个。
+<a href="https://github.com/facebook/react/blob/855b77c9bbee347735efcd626dda362db2ffae1d/packages/scheduler/src/SchedulerPriorities.js#L10" target="_blank">源码</a>中声明了 6 个优先级，但是<a href="https://github.com/facebook/react/blob/855b77c9bbee347735efcd626dda362db2ffae1d/packages/scheduler/src/forks/Scheduler.js#L27" target="_blank">实际</a>只使用了 5 个。
 
 ### 进入工作循环
 
-把任务放进任务队列后，如果满足执行任务的<a href="https://github.com/facebook/react/blob/3ddbedd0520a9738d8c3c7ce0268542e02f9738a/packages/scheduler/src/forks/Scheduler.js#L381" target="_blank">条件</a>，那么就可以准备执行任务了。
+把任务放进任务队列后，如果满足执行任务的<a href="https://github.com/facebook/react/blob/855b77c9bbee347735efcd626dda362db2ffae1d/packages/scheduler/src/forks/Scheduler.js#L424" target="_blank">条件</a>，那么就可以准备执行任务了。
 
-在浏览器环境中如果支持`MessageChannel`，那么可以就可以通过`MessagePort.postMessage`发送一条消息，然后`MessagePort.onMessage`在收到消息后进入工作循环，如果不支持，那么就通过`setTimeout`安排一个 0 秒后的定时任务。<a href="https://github.com/facebook/react/blob/3ddbedd0520a9738d8c3c7ce0268542e02f9738a/packages/scheduler/src/forks/Scheduler.js#L569">源码</a>中说明了为什么优先使用`MessageChannel`，因为在<a href="https://html.spec.whatwg.org/multipage/timers-and-user-prompts.html#timers" target="_blank">HTML5 标准</a>中注明了在嵌套了 5 次定时任务后，至少会有 4ms 的延时。
+在浏览器环境中如果支持`MessageChannel`，那么可以就可以通过`MessagePort.postMessage`发送一条消息，然后`MessagePort.onMessage`在收到消息后进入工作循环，如果不支持，那么就通过`setTimeout`安排一个 0 秒后的定时任务。<a href="https://github.com/facebook/react/blob/855b77c9bbee347735efcd626dda362db2ffae1d/packages/scheduler/src/forks/Scheduler.js#L618" target="_blank">源码</a>中说明了为什么优先使用`MessageChannel`，因为在<a href="https://html.spec.whatwg.org/multipage/timers-and-user-prompts.html#timers" target="_blank">HTML5 标准</a>中注明了在嵌套了 5 次定时任务后，至少会有 4ms 的延时。
 
-进入工作循环后从任务队列中取出优先级最高的任务准备执行，为什么说准备执行呢？因为真正执行任务是要满足一些<a href="https://github.com/facebook/react/blob/3ddbedd0520a9738d8c3c7ce0268542e02f9738a/packages/scheduler/src/forks/Scheduler.js#L197" target="_blank">条件</a>的，如果执行任务已经超过了一个限制时间，那么应该把主线程的控制权让给更优先的任务，例如浏览器绘制，用户输入等等。
+进入工作循环后从任务队列中取出优先级最高的任务准备执行，为什么说准备执行呢？因为真正执行任务是要满足一些<a href="https://github.com/facebook/react/blob/855b77c9bbee347735efcd626dda362db2ffae1d/packages/scheduler/src/forks/Scheduler.js#L217" target="_blank">条件</a>的，如果执行任务已经超过了一个限制时间，那么应该把主线程的控制权让给更优先的任务，例如浏览器绘制，用户输入等等。
