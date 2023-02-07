@@ -242,7 +242,7 @@ class App extends React.Component {
 
 ### fiber 的数据结构
 
-下面是 fiber 的大致数据结构，在<a href="https://github.com/facebook/react/blob/855b77c9bbee347735efcd626dda362db2ffae1d/packages/react-reconciler/src/ReactFiber.js#L134" target="_blank">源码</a>中可以查看完整的结构。
+下面是 fiber 的大致数据结构，在<a href="https://github.com/facebook/react/blob/855b77c9bbee347735efcd626dda362db2ffae1d/packages/react-reconciler/src/ReactInternalTypes.js#L79" target="_blank">源码</a>中可以查看完整的结构。
 
 ```javascript
 {
