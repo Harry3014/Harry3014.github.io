@@ -2,6 +2,7 @@
 title: "深入React"
 excerpt: ""
 toc: true
+toc_sticky: true
 date: 2022-07-14
 last_modified_at: 2022-07-14
 categories:
@@ -52,9 +53,51 @@ renderer 负责将组件渲染出来，不同的 render 在不同的平台上可
 
 ### 元素 Element
 
-元素可以理解为 UI 的轻量化描述，可以通过 JSX 或者`React.createElement`来创建元素。说到 JSX，我们可以多了解一些关于它的内容。
+元素可以理解为 UI 的轻量化描述，可以通过 JSX 或者`React.createElement`来创建元素。
 
-我们都知道 JSX 依靠 Babel 等工具转换为 JavaScript。在 React17 以前，JSX 会被转换为`React.createElement`，这也是为什么必须要引入 react package 的原因。
+元素 object 包含下面一些属性：
+
+- \$\$typeof：它的<a href="https://github.com/facebook/react/blob/855b77c9bbee347735efcd626dda362db2ffae1d/packages/shared/ReactSymbols.js#L15" target="_blank">值</a>是 symbol 类型，用于标识这个 object 是 React 元素。
+
+- type: 它的值是`string | function | class`，分别对应原生组件，函数组件和类组件。
+
+- props：保存了元素的一些属性。
+
+- key：给 React 元素添加一个唯一标识可以帮助 React 区分同一个列表中的元素，这对于添加子项，删除子项，给子项排序是非常重要的。
+
+元素更完整的结构见<a href="https://github.com/facebook/react/blob/855b77c9bbee347735efcd626dda362db2ffae1d/packages/react/src/ReactElement.js#L148" target="_blank">源码</a>。
+
+**非常重要！！**应该把元素当成不可变的对象，只要一经创建，内容不可修改。
+
+举个例子，`<h1 className="greeting">Hello from <i>React</i></h1>`会创建一个元素：
+
+```javascript
+{
+  // 省略$$typeof属性
+  type: "h1",
+  props: {
+    className: "greeting",
+    children: [
+      "Hello from ",
+      {
+        $$typeof: Symbol(react.element),
+        type: "i",
+        props: {
+          children: "React"
+        }
+        key: null,
+        ref: null,
+      }
+    ]
+  },
+  key: null,
+  ref: null
+}
+```
+
+### JSX
+
+JSX 依靠 Babel 等工具转换为 JavaScript。在 React17 以前，JSX 会被转换为`React.createElement`，这也是为什么必须要引入 react package 的原因。
 
 假设源代码如下：
 
@@ -93,120 +136,72 @@ function App() {
 }
 ```
 
-上面的 JSX 创建了元素，元素的大致结构如下，在<a href="https://github.com/facebook/react/blob/855b77c9bbee347735efcd626dda362db2ffae1d/packages/react/src/ReactElement.js#L148" target="_blank">源码</a>中可以看到它的完整结构。
+## 两个重要阶段
 
-**非常重要！！**应该把元素当成不可变的对象（创建后属性不能修改）。
+以下两种情况会触发渲染：
 
-```
-{
-  $$typeof,
-  type,
-  key,
-  ref,
-  props,
-}
-```
+- 初次渲染
+- 组件（或者它的祖先）状态发生改变
 
-**$$typeof**
+无论是哪一种，React 做的工作可以分为两个阶段：
 
-\$\$typeof 的值是`Symbol(react.element)`，用于标识这个 object 是 React 元素。
+1. 渲染阶段
+2. 提交阶段
 
-**type**
+下面我们来详细讨论这两个阶段。
 
-type 是 React 元素的类型。
+## 渲染阶段
 
-**key**
+- 初次渲染期间，React 创建 DOM 节点。
+- 后续重新渲染，React 计算出变化的内容，React 并不会用计算出的结果做出相应的改动。
 
-给 React 元素添加一个唯一标识可以帮助 React 区分同一个列表中的元素，这对于添加子项，删除子项，给子项排序是非常重要的。
+下面我们来看 React 具体是如何实现的。
 
-**props**
+### 初次渲染入口
 
-包含了元素的一些属性。
-
-下面我列出了一些常见类型组件会创建出什么样的 React 元素。
-
-```html
-<h1>Hello world from <i>React</i></h1>
-```
-
-```javascript
-{
-  $$typeof: Symbol(react.element),
-  type: "h1",
-  key: null,
-  ref: null,
-  props: {
-    children: [
-      "Hello World from ",
-      {
-        $$typeof: Symbol(react.element),
-        type: "i",
-        key: null,
-        ref: null,
-        props: {
-          children: "React"
-        }
-      }
-    ]
-  }
-}
-```
+我们调用`react-dom/client的`<a href="https://github.com/facebook/react/blob/855b77c9bbee347735efcd626dda362db2ffae1d/packages/react-dom/src/client/ReactDOMRoot.js#L181" target="_blank">`creatRoot`</a>创建一个 root，然后调用它的 render 方法，例如：
 
 ```jsx
-function App() {
+import { createRoot } from "react-dom/client";
+
+function Greeting() {
   return <h1>Hello world</h1>;
 }
 
-class App extends React.Component {
-  render() {
-    return <h1>Hello world</h1>;
+const root = createRoot(document.getElementById("root"));
+root.render(<Greeting />);
+```
+
+### 后续重新渲染入口
+
+状态更新会导致重新渲染，例如：
+
+```jsx
+import { useState } from "react";
+import { createRoot } from "react-dom/client";
+
+function Button() {
+  const [text, setText] = useState("off");
+
+  function handleClick() {
+    setText(text === "off" ? "on" : "off");
   }
+
+  return <button onClick={handleClick}>{text}</button>;
 }
+
+const root = createRoot(document.getElementById("root"));
+root.render(<Button />);
 ```
 
-```javascript
-{
-  $$typeof: Symbol(react.element),
-  type: App,
-  key: null,
-  ref: null,
-  props: {}
-}
-```
+在点击按钮后调用`setText`函数会触发重新渲染。
 
-## 渲染组件的三个步骤
-
-把组件渲染到屏幕上显示会经历下面三个步骤：
-
-1. 触发渲染
-2. 渲染组件
-3. 提交到 DOM
-
-<figure>
-<img src="/assets/images/render_commit.png" />
-</figure>
-
-我们先简单说明一下每个阶段会做哪些事情，后面我们会针对渲染和提交阶段做详细的分析。
-
-### 第一步：触发渲染
-
-有两种方式可以触发渲染：
-
-1. 初次渲染
-2. 组件状态改变后重新渲染
-
-### 第二步：渲染组件
-
-渲染组件的过程就是调用组件的过程，初次渲染是从根组件开始，后续的渲染从状态改变的组件开始。调用的过程是递归的，组件返回了子组件，那么会继续渲染子组件。
-
-在初次渲染时会创建 DOM 节点，在重新渲染时 React 会计算出与上一次渲染的差别，这一步我们不会使用比较信息做任何事情，那是下一个阶段的工作。
-
-渲染的过程可能会被 React 暂停或者重新启动，我们会在详细分析中解释 React 为什么这样做。
-
-**非常重要！！！**渲染的过程应该是纯净没有任何副作用的，那么意味着：
+**非常重要！！！**渲染的过程应该是纯净没有任何副作用的（否则会导致不可预测的行为），那么意味着：
 
 1. 相同的输入要有相同的输出
 2. 不应该修改渲染前的任何变量
+
+下面我们深入了解渲染的过程。
 
 ### 第三步：提交修改到 DOM
 
