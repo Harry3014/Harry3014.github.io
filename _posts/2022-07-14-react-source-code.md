@@ -12,17 +12,23 @@ tags:
 
 说明：本文分析基于<a href="https://github.com/facebook/react/tree/855b77c9bbee347735efcd626dda362db2ffae1d" target="_blank">React 18 版本</a>，而且只讨论 React 运行浏览器这一个平台上的情况。
 
-## 总览 React 源码
+## React 源码概述
 
 React 源码由多个 package 组成，我们下面来介绍几个核心的 package。
 
 ### react
 
-<a href="https://github.com/facebook/react/tree/855b77c9bbee347735efcd626dda362db2ffae1d/packages/react" target="_blank">react</a>定义了 React 的顶层 API，例如`React.Component, React.createElement, React.Suspense`以及 Hook 等等。
+<a href="https://github.com/facebook/react/tree/855b77c9bbee347735efcd626dda362db2ffae1d/packages/react" target="_blank">react</a>包含了 React 的所有顶层 API，比如：
+
+- 组件：Fragment，Suspense，Profiler，StrictMode。
+
+- Hooks：useState，useEffect 等等。
+
+- API：Component，createContext，createElement 等等。
 
 ### renderer
 
-不同的 render 可以将 React 组件渲染成不同的内容，它们运行在不同的平台上。
+renderer 负责将组件渲染出来，不同的 render 在不同的平台上可以将组件渲染成不同的内容，比如：
 
 - <a href="https://github.com/facebook/react/tree/855b77c9bbee347735efcd626dda362db2ffae1d/packages/react-dom" target="_blank">react-dom</a>渲染成 DOM。
 
@@ -34,23 +40,19 @@ React 源码由多个 package 组成，我们下面来介绍几个核心的 pack
 
 ### reconciler
 
-在第一次渲染或者需要更新时，<a href="https://github.com/facebook/react/tree/855b77c9bbee347735efcd626dda362db2ffae1d/packages/react-reconciler" target="_blank">react-reconciler</a>对比当前内容找出变化的部分，然后提供给 renderer 高效地更新渲染内容。
-
-到了这里你可能有一个疑问，第一次渲染跟谁比较呢？答案是跟空白内容进行比较。
+<a href="https://github.com/facebook/react/tree/855b77c9bbee347735efcd626dda362db2ffae1d/packages/react-reconciler" target="_blank">reconciler</a>做的工作：对比当前内容计算出变化的部分，然后将结果给 renderer 进行渲染，这个过程叫协调。
 
 ### scheduler
 
-<a href="https://github.com/facebook/react/tree/855b77c9bbee347735efcd626dda362db2ffae1d/packages/scheduler" target="_blank">scheduler</a>按照不同的优先级合理的安排任务的执行，还可以中止任务把主线程交给优先级更高的任务。
+<a href="https://github.com/facebook/react/tree/855b77c9bbee347735efcd626dda362db2ffae1d/packages/scheduler" target="_blank">scheduler</a>实现了协作式调度，可以先执行优先级高的任务，例如用户交互，将优先级低的任务延后执行，例如渲染刚从网络上下载的新内容。
 
 ## React 基础
 
-在进入更深的探讨之前，我们有必要了解一些 React 的基础但是很核心的概念。
+我们先了解一些基础概念。
 
-### React Element
+### 元素 Element
 
-元素是 React 中很重要的概念，它是构成 React 应用的最小单元，它可以是 host component（例如 html 的 div，span），可以是 function component，class component，fragment 等等内容。
-
-我们可以通过 JSX，`React.createElement`来创建元素。说到 JSX，我们可以多了解一些关于它的内容。
+元素可以理解为 UI 的轻量化描述，可以通过 JSX 或者`React.createElement`来创建元素。说到 JSX，我们可以多了解一些关于它的内容。
 
 我们都知道 JSX 依靠 Babel 等工具转换为 JavaScript。在 React17 以前，JSX 会被转换为`React.createElement`，这也是为什么必须要引入 react package 的原因。
 
@@ -91,7 +93,9 @@ function App() {
 }
 ```
 
-上面的 JSX 创建了 React 元素，React 元素的大致结构如下，在<a href="https://github.com/facebook/react/blob/855b77c9bbee347735efcd626dda362db2ffae1d/packages/react/src/ReactElement.js#L148" target="_blank">源码</a>中可以看到它的完整结构。
+上面的 JSX 创建了元素，元素的大致结构如下，在<a href="https://github.com/facebook/react/blob/855b77c9bbee347735efcd626dda362db2ffae1d/packages/react/src/ReactElement.js#L148" target="_blank">源码</a>中可以看到它的完整结构。
+
+**非常重要！！**应该把元素当成不可变的对象（创建后属性不能修改）。
 
 ```
 {
@@ -117,7 +121,7 @@ type 是 React 元素的类型。
 
 **props**
 
-`props`中保存了元素的一些属性。
+包含了元素的一些属性。
 
 下面我列出了一些常见类型组件会创建出什么样的 React 元素。
 
@@ -184,14 +188,14 @@ class App extends React.Component {
 
 我们先简单说明一下每个阶段会做哪些事情，后面我们会针对渲染和提交阶段做详细的分析。
 
-### 触发渲染
+### 第一步：触发渲染
 
 有两种方式可以触发渲染：
 
 1. 初次渲染
 2. 组件状态改变后重新渲染
 
-### 渲染组件
+### 第二步：渲染组件
 
 渲染组件的过程就是调用组件的过程，初次渲染是从根组件开始，后续的渲染从状态改变的组件开始。调用的过程是递归的，组件返回了子组件，那么会继续渲染子组件。
 
@@ -204,9 +208,11 @@ class App extends React.Component {
 1. 相同的输入要有相同的输出
 2. 不应该修改渲染前的任何变量
 
-### 提交修改到 DOM
+### 第三步：提交修改到 DOM
 
 提交阶段会修改 DOM，初次渲染会使用`appendChild()`，重新渲染时只修改最小变化的部分，这个信息在前面的渲染阶段已经计算好了。在修改 DOM 后浏览器就可以重新进行绘制了，然后就能呈现在屏幕上了。
+
+下面我们介绍重要的两个阶段，渲染阶段和提交阶段。
 
 ## 渲染阶段
 
@@ -238,7 +244,7 @@ class App extends React.Component {
 <img src="/assets/images/fiber_reconciler2.png" />
 </figure>
 
-那么 fiber 到底是什么呢？fiber 就是切片任务的抽象结构，就是模拟原来 stack 协调器调用栈中一个一个 stack frame，但是 fiber 可以由 React 来调度什么时候暂停或者中止任务。
+那么 fiber 到底是什么呢？fiber 就是任务单元 unit of work，就是模拟原来 stack 协调器调用栈中一个一个 stack frame，但是 fiber 可以由 React 来调度什么时候暂停或者中止任务。
 
 ### fiber 的数据结构
 
