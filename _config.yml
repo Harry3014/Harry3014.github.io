@@ -15,18 +15,19 @@
 minimal_mistakes_skin: "air" # "air", "aqua", "contrast", "dark", "dirt", "neon", "mint", "plum", "sunrise"
 
 # Site Settings
+#github: [metadata]
 locale: "zh-CN"
-title: "Harry's digital garden"
+title: "A blog by Harry He"
 title_separator: "-"
 subtitle: # site tagline that appears below site title in masthead
 name: "Harry He"
-description: "何宇的个人博客"
+description: "A blog by Harry He | 何宇的个人博客"
 url: "https://harry3014.github.io" # the base hostname & protocol for your site e.g. "https://mmistakes.github.io"
 baseurl: # the subpath of your site, e.g. "/blog"
 repository: # GitHub username/repo-name e.g. "mmistakes/minimal-mistakes"
 teaser: # path of fallback teaser image, e.g. "/assets/images/500x300.png"
 logo: # path of logo image to display in the masthead, e.g. "/assets/images/88x88.png"
-masthead_title: "Harry的数字花园" # overrides the website title displayed in the masthead, use " " for no title
+masthead_title: "Harry Blog" # overrides the website title displayed in the masthead, use " " for no title
 breadcrumbs: true # true, false (default)
 words_per_minute: 200
 date_format: "%Y-%m-%d"
@@ -103,10 +104,9 @@ analytics:
 # Site Author
 author:
   name: "Harry He"
-  avatar: "/assets/images/avatar.jpeg" # path of avatar image, e.g. "/assets/images/bio-photo.jpg"
-  bio: "「有期待的平凡程序员」"
+  avatar: "/assets/images/avatar.jpg" # path of avatar image, e.g. "/assets/images/bio-photo.jpg"
+  bio: "「还在流浪」"
   location: "中国深圳"
-  email: "harry3014@163.com"
   links:
     - label: "GitHub"
       icon: "fab fa-fw fa-github"
@@ -114,43 +114,13 @@ author:
     - label: "微博"
       icon: "fab fa-fw fa-weibo"
       url: "https://www.weibo.com/u/2566821914"
-    - label: "Email"
-      icon: "fas fa-fw fa-envelope-square"
-      # url: "mailto:your.name@email.com"
-    - label: "Website"
-      icon: "fas fa-fw fa-link"
-      # url: "https://your-website.com"
-    - label: "Twitter"
-      icon: "fab fa-fw fa-twitter-square"
-      # url: "https://twitter.com/"
-    - label: "Facebook"
-      icon: "fab fa-fw fa-facebook-square"
-      # url: "https://facebook.com/"
-    - label: "Instagram"
-      icon: "fab fa-fw fa-instagram"
-      # url: "https://instagram.com/"
 
 # Site Footer
 footer:
   links:
-    - label: "Twitter"
-      icon: "fab fa-fw fa-twitter-square"
-      # url:
-    - label: "Facebook"
-      icon: "fab fa-fw fa-facebook-square"
-      # url:
     - label: "GitHub"
       icon: "fab fa-fw fa-github"
       url: "https://github.com/Harry3014"
-    - label: "GitLab"
-      icon: "fab fa-fw fa-gitlab"
-      # url:
-    - label: "Bitbucket"
-      icon: "fab fa-fw fa-bitbucket"
-      # url:
-    - label: "Instagram"
-      icon: "fab fa-fw fa-instagram"
-      # url:
     - label: "微博"
       icon: "fab fa-fw fa-weibo"
       url: "https://www.weibo.com/u/2566821914"
@@ -219,7 +189,7 @@ sass:
 permalink: /:categories/:title/
 paginate: 5 # amount of posts to show
 paginate_path: /page:num/
-timezone: Asia/Shanghai # https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
+#timezone: Asia/Shanghai # https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
 
 # Plugins (previously gems:)
 plugins:
