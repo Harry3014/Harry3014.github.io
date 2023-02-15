@@ -181,20 +181,20 @@ import { useState } from "react";
 import { createRoot } from "react-dom/client";
 
 function Button() {
-  const [text, setText] = useState("off");
+  const [count, setCount] = useState("1");
 
   function handleClick() {
-    setText(text === "off" ? "on" : "off");
+    setCount(count + 1);
   }
 
-  return <button onClick={handleClick}>{text}</button>;
+  return <button onClick={handleClick}>{count}</button>;
 }
 
 const root = createRoot(document.getElementById("root"));
 root.render(<Button />);
 ```
 
-在点击按钮后调用`setText`函数会触发重新渲染。
+在点击按钮后调用`setCount`函数会触发重新渲染。
 
 **非常重要！！！**渲染的过程应该是纯净没有任何副作用的（否则会导致不可预测的行为），那么意味着：
 
