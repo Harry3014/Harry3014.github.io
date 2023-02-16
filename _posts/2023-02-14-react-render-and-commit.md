@@ -113,7 +113,7 @@ _贴士：源码中本来还有更多判断，例如使用 Facebook 和 Chrome �
 
 ### Fiber
 
-在分析 Fiber 前，我们先了解一下其他概念：
+在分析 Fiber 前，我们先了解一些其他概念：
 
 **声明式 vs 指令式**
 
@@ -122,10 +122,12 @@ React 使用声明式编写 UI（代替指令式），这使得开发者的工�
 在 React 的<a href="https://beta.reactjs.org/learn/reacting-to-input-with-state#how-declarative-ui-compares-to-imperative" target="_blank">文档</a>中举了一个例子来类比：你坐上一辆车需要到某个目的地，指令式就是告诉司机什么时候直行，什么时候转向，而声明式就是直接告诉司机目的地，他会自动把你送到目的地。
 
 <figure>
+  <figcaption>指令式</figcaption>
   <img src="/assets/images/i_imperative-ui-programming.png">
 </figure>
 
 <figure>
+  <figcaption>声明式</figcaption>
   <img src="/assets/images/i_declarative-ui-programming.png">
 </figure>
 
@@ -139,8 +141,66 @@ _贴士：其实叫 Virtul DOM 并不十分贴切，因为 React 并不是只能
 
 UI 从 A 状态变成 B 状态，React 需要计算出哪部分需要变化，而不是简单的重新渲染（提高性能），这个过程叫做协调。
 
-在上面的源码分析中初次遇到了 Fiber 这个类型，它是 React 中非常重要的一个概念。
+_贴士：虽然不同的 Renderer 渲染出的内容差别很大，但是协调的算法应该尽可能相似。_
 
-Fiber 是在 React16 中正式引入的，React 为什么引入 Fiber 呢？
+<figure>
+  <figcaption>reconciler & renderer</figcaption>
+  <img src="/assets/images/react_reconciler_renderer.jpg">
+</figure>
 
-### 源码分析 3：执行工作循环中的任务
+在 React16 **以前**，React 使用的协调解决方案叫 Stack reconciler，这不是一个官方名称，只是由于他的处理方式与 Stack 很相似。
+
+Stack reconciler 通过传入的元素创建了一些实例，然后再创建 DOM，更新的时候更新实例，然后更新 DOM。它的处理方式一层一层向下的，先处理本元素，然后处理子元素，或者处理调用函数组件或者类组件的 render 方法返回新的元素。React<a href="https://zh-hans.reactjs.org/docs/implementation-notes.html" target="_blank">文档</a>中有 Stack reconciler 的简单实现，有兴趣可以阅读。
+
+<figure>
+  <img src="/assets/images/react_element_instance_dom.jpg">
+</figure>
+
+<figure>
+  <figcaption>Stack reconciler</figcaption>
+  <img src="/assets/images/stack_reconciler.png">
+</figure>
+
+Stack reconciler 有很明显的局限性：
+
+- 如果 UI 的层级很多，那么随着递归深入，那么可能会导致掉帧
+- 如果在协调的过程中有更高优先级的任务需要处理，它无法中断
+
+为了解决这些问题，React16 引入了**Fiber**，我们先看一看 Fiber reconciler 是如何做的，然后再去研究细节。
+
+<figure>
+  <figcaption>Fiber reconciler</figcaption>
+  <img src="/assets/images/fiber_reconciler1.png">
+  <img src="/assets/images/fiber_reconciler2.png">
+</figure>
+
+新的协调算法将可中断的任务切分成更小的任务，在执行完一个任务片段后可以让出主线程，如果有更高优先级的任务可以在这时候执行。
+
+**Fiber 是什么**
+
+Fiber 就是一个个小的任务单元（unit of work），你可以把它理解成原来 Stack 中的一帧，它受 React 控制：
+
+- 可以暂停（pause），然后回来继续执行未完成的任务
+- 可以中止（abort），注意与暂停的区别，这里指放弃掉
+- 可以赋予优先级
+- 可以重用
+
+_贴士：更多 Fiber 的目标可以在 React<a href="https://zh-hans.reactjs.org/docs/codebase-overview.html#fiber-reconciler" target="_blank">文档</a>中查看_
+
+**Fiber 的数据结构**
+
+Fiber 是一个有以下属性的对象：
+
+_贴士：这里仅仅列出一些重要属性，完整结构请查看<a href="https://github.com/facebook/react/blob/855b77c9bbee347735efcd626dda362db2ffae1d/packages/react-reconciler/src/ReactInternalTypes.js#L79" target="_blank">源码</a>_
+
+- tag
+
+  定义了 Fiber 的类型，<a href="https://github.com/facebook/react/blob/855b77c9bbee347735efcd626dda362db2ffae1d/packages/react-reconciler/src/ReactWorkTags.js" target="_blank">源码</a>中定义了很多种类型，例如下面这几个常见类型:
+
+  ```javascript
+  export const FunctionComponent = 0;
+  export const ClassComponent = 1;
+  export const IndeterminateComponent = 2; // Before we know whether it is function or class
+  export const HostRoot = 3; // Root of a host tree. Could be nested inside another node.
+  export const HostComponent = 5;
+  ```

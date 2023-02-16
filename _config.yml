@@ -105,7 +105,7 @@ analytics:
 author:
   name: "Harry He"
   avatar: "/assets/images/avatar.jpg" # path of avatar image, e.g. "/assets/images/bio-photo.jpg"
-  bio: "「还在流浪」"
+  bio: "「分享代替说服」"
   location: "中国深圳"
   links:
     - label: "GitHub"
