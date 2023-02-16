@@ -111,6 +111,36 @@ _贴士：源码中本来还有更多判断，例如使用 Facebook 和 Chrome �
 
 - `current: Fiber`：`root.current`就是这个参数。_这里的 root 指的是上面的 root 参数。_
 
-我们初次遇到了 Fiber 这个类型，稍后我们再详细说明。
+### Fiber
+
+在分析 Fiber 前，我们先了解一下其他概念：
+
+**声明式 vs 指令式**
+
+React 使用声明式编写 UI（代替指令式），这使得开发者的工作变得更加容易，开发者只需要告诉 React 你需要显示出来的 UI 是什么样的，剩下的工作由 React 来完成。
+
+在 React 的<a href="https://beta.reactjs.org/learn/reacting-to-input-with-state#how-declarative-ui-compares-to-imperative" target="_blank">文档</a>中举了一个例子来类比：你坐上一辆车需要到某个目的地，指令式就是告诉司机什么时候直行，什么时候转向，而声明式就是直接告诉司机目的地，他会自动把你送到目的地。
+
+<figure>
+  <img src="/assets/images/i_imperative-ui-programming.png">
+</figure>
+
+<figure>
+  <img src="/assets/images/i_declarative-ui-programming.png">
+</figure>
+
+**Virtual DOM**
+
+开发者只是声明了 UI，React 会创建一些”虚拟的“内容来描述 UI 并保存在内存中，元素和 Fiber 被认为是 Virtual DOM 实现的一部分。在 React 的<a href="https://zh-hans.reactjs.org/docs/faq-internals.html#what-is-the-virtual-dom" target="_blank">文档</a>由更多关于 Virtual DOM 的描述。
+
+_贴士：其实叫 Virtul DOM 并不十分贴切，因为 React 并不是只能渲染为 DOM，还可以在移动平台上渲染为 native 视图_
+
+**协调 reconciliation**
+
+UI 从 A 状态变成 B 状态，React 需要计算出哪部分需要变化，而不是简单的重新渲染（提高性能），这个过程叫做协调。
+
+在上面的源码分析中初次遇到了 Fiber 这个类型，它是 React 中非常重要的一个概念。
+
+Fiber 是在 React16 中正式引入的，React 为什么引入 Fiber 呢？
 
 ### 源码分析 3：执行工作循环中的任务
