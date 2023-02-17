@@ -153,18 +153,17 @@ _贴士：虽然不同的 Renderer 渲染出的内容差别很大，但是协调
 Stack reconciler 通过传入的元素创建了一些实例，然后再创建 DOM，更新的时候更新实例，然后更新 DOM。它的处理方式一层一层向下的，先处理本元素，然后处理子元素，或者处理调用函数组件或者类组件的 render 方法返回新的元素。React<a href="https://zh-hans.reactjs.org/docs/implementation-notes.html" target="_blank">文档</a>中有 Stack reconciler 的简单实现，有兴趣可以阅读。
 
 <figure>
-  <img src="/assets/images/react_element_instance_dom.jpg">
-</figure>
-
-<figure>
   <figcaption>Stack reconciler</figcaption>
   <img src="/assets/images/stack_reconciler.png">
 </figure>
 
+<figure>
+  <img src="/assets/images/react_element_instance_dom.jpg">
+</figure>
+
 Stack reconciler 有很明显的局限性：
 
-- 如果 UI 的层级很多，那么随着递归深入，那么可能会导致掉帧
-- 如果在协调的过程中有更高优先级的任务需要处理，它无法中断
+- 同步无法中断，如果中断了，这时浏览器需要重新绘制，那么可能导致 UI 不一致，例如上图中处理完第二个 item 后中断，这时候第一个 item 和第二个 item 的 DOM 已经发生变化了。
 
 为了解决这些问题，React16 引入了**Fiber**，我们先看一看 Fiber reconciler 是如何做的，然后再去研究细节。
 
@@ -175,6 +174,13 @@ Stack reconciler 有很明显的局限性：
 </figure>
 
 新的协调算法将可中断的任务切分成更小的任务，在执行完一个任务片段后可以让出主线程，如果有更高优先级的任务可以在这时候执行。
+
+而且 Fiber reconciler 分成渲染和提交两个阶段，渲染阶段将所有的内容处理完成，然后在进入提交阶段进行统一渲染，这样就保证 UI 的一致性。渲染阶段可中断去执行其他任务，但是在提交阶段无法中断，否则无法保证 UI 的一致性。
+
+<figure>
+  <figcaption>React Phases</figcaption>
+  <img src="/assets/images/react_phases.png">
+</figure>
 
 **Fiber 是什么**
 
@@ -204,3 +210,30 @@ _贴士：这里仅仅列出一些重要属性，完整结构请查看<a href="h
   export const HostRoot = 3; // Root of a host tree. Could be nested inside another node.
   export const HostComponent = 5;
   ```
+
+- key and type
+
+  key 和 type 在创建 Fiber 时都是从元素直接<a href="https://github.com/facebook/react/blob/855b77c9bbee347735efcd626dda362db2ffae1d/packages/react-reconciler/src/ReactFiber.js#L650" target="_blank">复制</a>过来的，`fiber.key = element.key; fiber.type = element.type`。
+
+  函数组件和类组件的`type`就是他们自己，宿主组件的`type`是`string`，例如`div`, `span`。
+
+- stateNode
+
+  维护了 Fiber 的本地状态，例如 DOM 节点或者类组件的实例等等。
+
+- return, child and sibling
+
+  这三个属性使得不同的 Fiber 之间建立起了联系，`fiber.child`指向第一个子节点，`fiber.return`指向父节点，`fiber.sibling`指向下一个兄弟节点。
+
+  <figure>
+    <figcaption>Fiber tree</figcaption>
+    <img src="/assets/images/fiber_structure.png">
+  </figure>
+
+- pendingProps and memoizedProps
+
+  `pendingProps`是执行 Fiber 前设置的属性，`memoizedProps`是执行 Fiber 后设置的属性。如果二者相同，那么就表示上一次 Fiber 的输出可以重用，避免重复工作。
+
+- alternate
+
+  一个组件可能不止有一个 Fiber：`current` fiber 表示当前状态，`workInProgress` fiber 表示正在处理。`current.alternate === workInProgress`并且`workInProgress.alternate === current`。
