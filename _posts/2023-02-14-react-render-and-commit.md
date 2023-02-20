@@ -60,7 +60,7 @@ _贴士：上一个段落中提及的任务（task）就是异步任务，微任
     - `workLoopSync()` <a href="https://github.com/facebook/react/blob/855b77c9bbee347735efcd626dda362db2ffae1d/packages/react-reconciler/src/ReactFiberWorkLoop.js#L2121" target="_blank">_call_</a>
       - <a href="https://github.com/facebook/react/blob/855b77c9bbee347735efcd626dda362db2ffae1d/packages/react-reconciler/src/ReactFiberWorkLoop.js#L2303" target="_blank">`performUnitOfWork(unitOfWork: Fiber)`</a>
 
-### 源码分析 2：工作循环
+### 源码分析 2：工作循环 work loop
 
 无论是同步还是异步，最终都会调用`performUnitOfWork(unitOfWork: Fiber)`，我们先看这个函数的上一层：工作循环 work loop。
 
@@ -237,3 +237,82 @@ _贴士：这里仅仅列出一些重要属性，完整结构请查看<a href="h
 - alternate
 
   一个组件可能不止有一个 Fiber：`current` fiber 表示当前状态，`workInProgress` fiber 表示正在处理。`current.alternate === workInProgress`并且`workInProgress.alternate === current`。
+
+### 源码分析 3：执行任务单元 peformUnitOfWork
+
+上面我们说到 work loop 会调用<a href="https://github.com/facebook/react/blob/855b77c9bbee347735efcd626dda362db2ffae1d/packages/react-reconciler/src/ReactFiberWorkLoop.js#L2303" target="_blank">`performUnitOfWork(unitOfWork: Fiber)`</a>，第一个`unitOfWork`是`root`中保存的类型为`HostRoot`的 Fiber，下文都简称`HostRoot`。
+
+我们现在来看看初次渲染是怎样建立整个 Fiber 结构的，以及更新状态后再次渲染是怎样处理的。
+
+`performUnitOfWork(unitOfWork: Fiber)`可以精简为下面的代码：
+
+```javascript
+function performUnitOfWork(unitOfWork: Fiber): void {
+  const current = unitOfWork.alternate;
+  const next = beginWork(current, unitOfWork, ...);
+
+  unitOfWork.memoizedProps = unitOfWork.pendingProps;
+
+  if (next === null) {
+    // If this doesn't spawn new work, complete the current work.
+    completeUnitOfWork(unitOfWork);
+  } else {
+    workInProgress = next;
+  }
+}
+```
+
+这个函数非常好理解，调用`beginWork`，
+
+- 如果没有返回下一个 Fiber，那么就调用`completeUnitOfWork`
+
+- 否则让`workInProgress`指向下一个 Fiber，进入下一次 work loop。
+
+在<a href="https://github.com/facebook/react/blob/855b77c9bbee347735efcd626dda362db2ffae1d/packages/react-reconciler/src/ReactFiberBeginWork.js#L3936" target="_blank">`beginWork`</a>中会<a href="https://github.com/facebook/react/blob/855b77c9bbee347735efcd626dda362db2ffae1d/packages/react-reconciler/src/ReactFiberBeginWork.js#L4031" target="_blank">根据不同类型的 Fiber 做不同的处理</a>。
+
+```typescript
+function beginWork(
+  current: Fiber | null,
+  workInProgress: Fiber,
+  renderLanes: Lanes
+): Fiber | null {
+  // ...
+
+  if (curren !== null) {
+    // ...
+
+    if (matchSomeConditon) {
+      // 满足某些条件可以提前跳出，因为渲染阶段都从HostRoot开始，但是可能某些节点没有任何需要修改的内容，这样能提高性能
+      return attemptEarlyBailoutIfNoScheduledUpdate(
+        current,
+        workInProgress,
+        renderLanes
+      );
+    }
+  } else {
+    // ...
+  }
+
+  // ...
+
+  switch (workInProgress.tag) {
+    // ...
+    case FunctionComponent: {
+      // ...
+      return updateFunctionComponent(/*...*/);
+    }
+    case ClassComponent: {
+      // ...
+      return updateClassComponent(/*...*/);
+    }
+    case HostRoot: {
+      // ...
+      return updateHostRoot(/*...*/);
+    }
+    case HostComponent: {
+      // ...
+      return updateHostComponent(/*...*/);
+    }
+  }
+}
+```
