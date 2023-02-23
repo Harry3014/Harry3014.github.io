@@ -238,13 +238,22 @@ _贴士：这里仅仅列出一些重要属性，完整结构请查看<a href="h
 
   一个组件可能不止有一个 Fiber：`current` fiber 表示当前状态，`workInProgress` fiber 表示正在处理。`current.alternate === workInProgress`并且`workInProgress.alternate === current`。
 
+**双缓冲**
+
+React 在内部维护了两个版本的 Fiber Tree：
+
+- current：已处理完成的版本
+- workInProgress：正在处理的版本
+
+它们之间使用`alternate`属性关联，这样做可以重用 Fiber 对象减少内存分配。
+
+<a href="https://github.com/facebook/react/blob/855b77c9bbee347735efcd626dda362db2ffae1d/packages/react-reconciler/src/ReactFiber.js#L266" target="_blank">源码</a>中创建`workInProgress`就体现了 React 使用了双缓冲解决方案。
+
 ### 源码分析 3：执行任务单元 peformUnitOfWork
 
 上面我们说到 work loop 会调用<a href="https://github.com/facebook/react/blob/855b77c9bbee347735efcd626dda362db2ffae1d/packages/react-reconciler/src/ReactFiberWorkLoop.js#L2303" target="_blank">`performUnitOfWork(unitOfWork: Fiber)`</a>，第一个`unitOfWork`是`root`中保存的类型为`HostRoot`的 Fiber，下文都简称`HostRoot`。
 
-我们现在来看看初次渲染是怎样建立整个 Fiber 结构的，以及更新状态后再次渲染是怎样处理的。
-
-`performUnitOfWork(unitOfWork: Fiber)`可以精简为下面的代码：
+下面是这个函数的精简版本：
 
 ```javascript
 function performUnitOfWork(unitOfWork: Fiber): void {
@@ -262,13 +271,17 @@ function performUnitOfWork(unitOfWork: Fiber): void {
 }
 ```
 
-这个函数非常好理解，调用`beginWork`，
+这个函数非常好理解：
 
-- 如果没有返回下一个 Fiber，那么就调用`completeUnitOfWork`
+- 调用`beginWork`
 
-- 否则让`workInProgress`指向下一个 Fiber，进入下一次 work loop。
+  - 如果没有返回下一个 Fiber，那么就调用`completeUnitOfWork`
 
-在<a href="https://github.com/facebook/react/blob/855b77c9bbee347735efcd626dda362db2ffae1d/packages/react-reconciler/src/ReactFiberBeginWork.js#L3936" target="_blank">`beginWork`</a>中会<a href="https://github.com/facebook/react/blob/855b77c9bbee347735efcd626dda362db2ffae1d/packages/react-reconciler/src/ReactFiberBeginWork.js#L4031" target="_blank">根据不同类型的 Fiber 做不同的处理</a>。
+  - 否则让`workInProgress`指向下一个 Fiber，进入下一次 work loop。
+
+### 源码分析 4: beginWork
+
+下面是这个函数的精简版本。
 
 ```typescript
 function beginWork(
@@ -282,7 +295,7 @@ function beginWork(
     // ...
 
     if (matchSomeConditon) {
-      // 满足某些条件可以提前跳出，因为渲染阶段都从HostRoot开始，但是可能某些节点没有任何需要修改的内容，这样能提高性能
+      // 满足某些条件可以提前返回
       return attemptEarlyBailoutIfNoScheduledUpdate(
         current,
         workInProgress,
@@ -316,3 +329,20 @@ function beginWork(
   }
 }
 ```
+
+**提前退出 beginWork**
+
+工作循环始终从`HostRoot`开始，但是`workInProgress`自身可能没有任何更新，这时也存在不同情况：
+
+- 子树没有更新，返回`null`，然后进入`completeUnitOfWork`
+- 子树有更新，返回`child`
+
+_贴士：判断子树有没有更新可以通过判断<a href="https://github.com/facebook/react/blob/855b77c9bbee347735efcd626dda362db2ffae1d/packages/react-reconciler/src/ReactFiberBeginWork.js#L3609" target="_blank">workInProgress.childLanes</a> 属性，我们下面再说 lane 模型_
+
+**真正进入 begin 阶段**
+
+这时会<a href="https://github.com/facebook/react/blob/855b77c9bbee347735efcd626dda362db2ffae1d/packages/react-reconciler/src/ReactFiberBeginWork.js#L4031" target="_blank">根据不同类型做不同的处理</a>。
+
+**reconcileChildren**
+
+常见的`FunctionComponent, ClassComponent`等最终可能都会进入<a href="https://github.com/facebook/react/blob/855b77c9bbee347735efcd626dda362db2ffae1d/packages/react-reconciler/src/ReactFiberBeginWork.js#L316" target="_blank">`reconcileChildren`</a>函数。
