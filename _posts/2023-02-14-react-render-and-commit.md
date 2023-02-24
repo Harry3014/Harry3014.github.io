@@ -1,5 +1,5 @@
 ---
-title: "渲染和提交 Render and Commit"
+title: "渲染和提交"
 excerpt: ""
 toc: true
 toc_sticky: true
@@ -11,7 +11,13 @@ tags:
   - React
 ---
 
-## 第一步：触发渲染
+将 React 组件呈现到页面上需要经历下面三个步骤：
+
+1. 触发渲染
+2. 渲染组件
+3. 提交到 DOM
+
+## 触发渲染
 
 以下两种情况会触发渲染：
 
@@ -37,81 +43,178 @@ const root = createRoot(document.getElementById("root"));
 root.render(<Counter />); // 初次渲染
 ```
 
-## 第二步：渲染阶段 Render Phase
+### 安排渲染任务
 
-浏览器渲染需要构建 DOM 树，那么：
+触发渲染后，React 并没有立即开始渲染工作，而是将渲染任务做了计划，具体何时执行需要听从调度。
 
-- 初次渲染：`root.render(<Counter />)`提供给 React 的是元素，在渲染阶段 React 需要创建对应的 DOM 节点。
-- 再次渲染：`setCount(count + 1)`状态发生改变，在渲染阶段 React 需要计算出哪些内容发生了变化。
+我们来看一看 React 大致是如何处理的。
 
-无论是初次渲染，还是状态更新后触发的再次渲染，都不会立即执行真正的渲染，React 可能将其安排为事件循环中的一个任务（task），也可能安排为一个微任务（microtask），这部分内容将在其他文章中详细说明。
+_我们并非深入探究每行代码，只需理解 React 的工作原理_。
 
-### 源码分析 1：渲染阶段的开始
+触发渲染后总会进入`scheduleUpdateOnFiber`函数：
 
-渲染阶段的工作始于`function performConcurrentWorkOnRoot(root: FiberRoot, didTimeout: boolean)`或者`function performSyncWorkOnRoot(root: FiberRoot)`，这取决于渲染任务是异步还是同步。
-
-_贴士：上一个段落中提及的任务（task）就是异步任务，微任务（microtask）是同步任务_
-
-- `performConcurrentWorkOnRoot(root: FiberRoot, didTimeout: boolean)` <a href="https://github.com/facebook/react/blob/855b77c9bbee347735efcd626dda362db2ffae1d/packages/react-reconciler/src/ReactFiberWorkLoop.js#L1055" target="_blank">_call_</a>
-- `performSyncWorkOnRoot(root: FiberRoot)` <a href="https://github.com/facebook/react/blob/855b77c9bbee347735efcd626dda362db2ffae1d/packages/react-reconciler/src/ReactFiberWorkLoop.js#L1477" target="_blank">_call_</a>
-  - `renderRootConcurrent(root: FiberRoot, lanes: Lanes)` <a href="https://github.com/facebook/react/blob/855b77c9bbee347735efcd626dda362db2ffae1d/packages/react-reconciler/src/ReactFiberWorkLoop.js#L2251" target="_blank">_call_</a>
-  - `renderRootSync(root: FiberRoot, lanes: Lanes)` <a href="https://github.com/facebook/react/blob/855b77c9bbee347735efcd626dda362db2ffae1d/packages/react-reconciler/src/ReactFiberWorkLoop.js#L2076" target="_blank">_call_</a>
-    - `workLoopConcurrent()` <a href="https://github.com/facebook/react/blob/855b77c9bbee347735efcd626dda362db2ffae1d/packages/react-reconciler/src/ReactFiberWorkLoop.js#L2299" target="_blank">_call_</a>
-    - `workLoopSync()` <a href="https://github.com/facebook/react/blob/855b77c9bbee347735efcd626dda362db2ffae1d/packages/react-reconciler/src/ReactFiberWorkLoop.js#L2121" target="_blank">_call_</a>
-      - <a href="https://github.com/facebook/react/blob/855b77c9bbee347735efcd626dda362db2ffae1d/packages/react-reconciler/src/ReactFiberWorkLoop.js#L2303" target="_blank">`performUnitOfWork(unitOfWork: Fiber)`</a>
-
-### 源码分析 2：工作循环 work loop
-
-无论是同步还是异步，最终都会调用`performUnitOfWork(unitOfWork: Fiber)`，我们先看这个函数的上一层：工作循环 work loop。
+> <a href="https://github.com/facebook/react/blob/855b77c9bbee347735efcd626dda362db2ffae1d/packages/react-reconciler/src/ReactFiberWorkLoop.js#L697" target="_blank">跳转到 Github 查看源码</a>
 
 ```javascript
-function workLoopConcurrent() {
-  while (workInProgress !== null && !shouldYield()) {
-    performUnitOfWork(workInProgress);
+export function scheduleUpdateOnFiber(
+  root: FiberRoot,
+  fiber: Fiber,
+  lane: Lane,
+  eventTime: number
+) {
+  // ...省略
+
+  ensureRootIsScheduled(root, eventTime);
+
+  // ...省略
+}
+```
+
+然后进入`ensureRootIsScheduled`：
+
+> <a href="https://github.com/facebook/react/blob/855b77c9bbee347735efcd626dda362db2ffae1d/packages/react-reconciler/src/ReactFiberWorkLoop.js#L865" target="_blank">跳转到 Github 查看源码</a>
+
+```javascript
+// Use this function to schedule a task for a root.
+function ensureRootIsScheduled(root: FiberRoot, currentTime: number) {
+  // ...省略
+
+  // Determine the next lanes to work on, and their priority.
+  const nextLanes = getNextLanes(
+    root,
+    root === workInProgressRoot ? workInProgressRootRenderLanes : NoLanes
+  );
+
+  // ...省略
+
+  // We use the highest priority lane to represent the priority of the callback.
+  const newCallbackPriority = getHighestPriorityLane(nextLanes);
+
+  // ...省略
+
+  // 判断优先级
+  if (includesSyncLane(newCallbackPriority)) {
+    // 优先级高
+    // Special case: Sync React callbacks are scheduled on a special internal queue
+
+    // ...省略
+
+    scheduleSyncCallback(performSyncWorkOnRoot.bind(null, root));
+    if (supportsMicrotasks) {
+      // 如果支持微任务
+      // Flush the queue in a microtask.
+      // ...省略
+    } else {
+      // 调用scheduler package的API以高优先级安排任务
+      scheduleCallback(ImmediateSchedulerPriority, flushSyncCallbacks);
+    }
+  } else {
+    // 优先级不高
+    // 调用scheduler package的API以其他优先级安排任务
+
+    // ...省略确定优先级的代码
+
+    scheduleCallback(
+      schedulerPriorityLevel,
+      performConcurrentWorkOnRoot.bind(null, root)
+    );
   }
 }
+```
 
+我们来看看这个函数的重要内容：
+
+- 确定 Lanes 和优先级，_Lanes 模型是 React 内部调度的一个重要模型，暂时不深入了解_
+  - 优先级很高：安排为同步回调，回调函数是`performSyncWorkOnRoot`
+    - 如果支持微任务，会在微任务中来调用回调函数
+    - 否则使用 scheduler 的 API 来实现回调
+  - 优先级不高：安排为异步回调，回调函数是`performConcurrentWorkOnRoot`
+    - 使用 scheduler 的 API 来实现回调
+
+> 安排微任务可能按照次序使用`queueMicrotask`，`Promise`, `timeout`中的一种，取决于平台是否支持。<a href="https://github.com/facebook/react/blob/855b77c9bbee347735efcd626dda362db2ffae1d/packages/react-dom-bindings/src/client/ReactDOMHostConfig.js#L433" target="_blank">跳转到 Github 查看源码</a>
+
+**scheduler**
+
+`scheduler`是 React 中一个用于任务调度的包，现在仅在 React 中使用，但是完全可以独立出来作为通用调用算法。
+
+> <a href="https://github.com/facebook/react/tree/855b77c9bbee347735efcd626dda362db2ffae1d/packages/scheduler" target="_blank">跳转到 Github 查看源码</a>
+
+`scheduler`将任务放在最小堆中，每次拿出优先级最高的任务执行。
+
+> <a href="https://github.com/facebook/react/blob/855b77c9bbee347735efcd626dda362db2ffae1d/packages/scheduler/src/SchedulerMinHeap.js" target="_blank">最小堆实现</a>
+
+> <a href="https://github.com/facebook/react/blob/855b77c9bbee347735efcd626dda362db2ffae1d/packages/scheduler/src/SchedulerPriorities.js" target="_blank">定义的优先级</a>
+
+> <a href="https://github.com/facebook/react/blob/855b77c9bbee347735efcd626dda362db2ffae1d/packages/scheduler/src/forks/Scheduler.js#L346" target="_blank">查看添加回调任务的源码</a>
+
+> <a href="https://github.com/facebook/react/blob/855b77c9bbee347735efcd626dda362db2ffae1d/packages/scheduler/src/forks/Scheduler.js#L616" target="_blank">使用 MessageChannel 来调用回调</a>
+
+_选择 MessageChannel 以为回调作为事件循环模型中的 task 执行，而不是 microtask_
+
+## 渲染阶段
+
+两种情况下 React 在渲染阶段做的工作：
+
+- 初次渲染：创建 DOM 节点
+- 再次渲染：计算与上一次渲染之间的差异，_此阶段不会使用差异信息做实际性修改，那是下一个阶段的工作_
+
+在上面一个章节我们看到 React 为渲染安排了回调：`performSyncWorkOnRoot`或`performConcurrentWorkOnRoot`，它们的主要调用流程如下：
+
+- `performSyncWorkOnRoot(root: FiberRoot)` <a href="https://github.com/facebook/react/blob/855b77c9bbee347735efcd626dda362db2ffae1d/packages/react-reconciler/src/ReactFiberWorkLoop.js#L1477" target="_blank">_call_</a>
+
+  - `renderRootSync(root: FiberRoot, lanes: Lanes)` <a href="https://github.com/facebook/react/blob/855b77c9bbee347735efcd626dda362db2ffae1d/packages/react-reconciler/src/ReactFiberWorkLoop.js#L2076" target="_blank">_call_</a>
+    - `workLoopSync()` <a href="https://github.com/facebook/react/blob/855b77c9bbee347735efcd626dda362db2ffae1d/packages/react-reconciler/src/ReactFiberWorkLoop.js#L2121" target="_blank">_call_</a>
+      - `performUnitOfWork(unitOfWork: Fiber)`
+
+- `performConcurrentWorkOnRoot(root: FiberRoot, didTimeout: boolean)` <a href="https://github.com/facebook/react/blob/855b77c9bbee347735efcd626dda362db2ffae1d/packages/react-reconciler/src/ReactFiberWorkLoop.js#L1055" target="_blank">_call_</a>
+
+  - `renderRootConcurrent(root: FiberRoot, lanes: Lanes)` <a href="https://github.com/facebook/react/blob/855b77c9bbee347735efcd626dda362db2ffae1d/packages/react-reconciler/src/ReactFiberWorkLoop.js#L2251" target="_blank">_call_</a>
+    - `workLoopConcurrent()` <a href="https://github.com/facebook/react/blob/855b77c9bbee347735efcd626dda362db2ffae1d/packages/react-reconciler/src/ReactFiberWorkLoop.js#L2299" target="_blank">_call_</a>
+      - `performUnitOfWork(unitOfWork: Fiber)`
+
+无论是哪一种情况，最终都会进入`performUnitOfWork`函数，我们先不讨论这个函数，我们先看这个函数的上一层：工作循环。
+
+### 工作循环
+
+下面是这两种工作循环的代码。
+
+```javascript
 function workLoopSync() {
   while (workInProgress !== null) {
     performUnitOfWork(workInProgress);
   }
 }
+
+function workLoopConcurrent() {
+  while (workInProgress !== null && !shouldYield()) {
+    performUnitOfWork(workInProgress);
+  }
+}
 ```
 
-`workLoopConcurrent`与`workLoopSync`的唯一区别是在调用`performUnitOfWork`前是否判断<a href="https://github.com/facebook/react/blob/855b77c9bbee347735efcd626dda362db2ffae1d/packages/scheduler/src/forks/Scheduler.js#L487" target="_blank">`shouldYield()`</a>以便让出主线程，`shouldYiled`的代码大致如下。
+**两种工作循环的差别**
+
+它们的唯一区别是在调用`performUnitOfWork`前是否判断`shouldYield()`以便让出主线程，这个 API 是 scheduler package 提供的，它的精简代码如下：
 
 ```javascript
 function shouldYieldToHost() {
   const timeElapsed = getCurrentTime() - startTime;
   if (timeElapsed < frameInterval) {
+    // The main thread has only been blocked for a really short amount of time;
+    // smaller than a single frame. Don't yield yet.
     return false;
   }
   return true;
 }
 ```
 
+> <a href="https://github.com/facebook/react/blob/855b77c9bbee347735efcd626dda362db2ffae1d/packages/scheduler/src/forks/Scheduler.js#L487" target="_blank">跳转到 Github 查看源码</a>
+
 _贴士：源码中本来还有更多判断，例如使用 Facebook 和 Chrome 合作的 API `navigator.scheduling.isInputPending()`，但是由于 React 目前默认<a href="https://github.com/facebook/react/blob/855b77c9bbee347735efcd626dda362db2ffae1d/packages/scheduler/src/SchedulerFeatureFlags.js#L11" target="_blank">没有开启</a>这个功能，所以代码精简了。_
 
-如果超出`frameInterval`，那么就需要让出主线程，`frameInterval`的初始值是<a href="https://github.com/facebook/react/blob/855b77c9bbee347735efcd626dda362db2ffae1d/packages/scheduler/src/SchedulerFeatureFlags.js#L14" target="_blank">5ms</a>。
+如果占用主线程时间超出`frameInterval`，那么就需要让出主线程，`frameInterval`的初始值是<a href="https://github.com/facebook/react/blob/855b77c9bbee347735efcd626dda362db2ffae1d/packages/scheduler/src/SchedulerFeatureFlags.js#L14" target="_blank">5ms</a>。
 
-我们看到进入`performUnitOfWork`函数还有另外一个条件`workInProgress !== null`，第一个`workInProgress`在执行`renderRootSync(root: FiberRoot, lanes: Lanes)`或者`renderRootConcurrent(root: FiberRoot, lanes: Lanes)`时创建。
-
-- `renderRootSync(root: FiberRoot, lanes: Lanes)` <a href="https://github.com/facebook/react/blob/855b77c9bbee347735efcd626dda362db2ffae1d/packages/react-reconciler/src/ReactFiberWorkLoop.js#L2029" target="_blank">_call_</a>
-- `renderRootConcurrent(root: FiberRoot, lanes: Lanes)` <a href="https://github.com/facebook/react/blob/855b77c9bbee347735efcd626dda362db2ffae1d/packages/react-reconciler/src/ReactFiberWorkLoop.js#L2152" target="_blank">_call_</a>
-  - `prepareFreshStack(root: FiberRoot, lanes: Lanes)` <a href="https://github.com/facebook/react/blob/855b77c9bbee347735efcd626dda362db2ffae1d/packages/react-reconciler/src/ReactFiberWorkLoop.js#L1738" target="_blank">_call_</a>
-    - <a href="https://github.com/facebook/react/blob/855b77c9bbee347735efcd626dda362db2ffae1d/packages/react-reconciler/src/ReactFiber.js#L267" target="_blank">`createWorkInProgress(current: Fiber, pendingProps: any)`</a>
-
-我们来看看这几个函数中的两个重要参数:
-
-- `root: FiberRoot`：还记得我们通过`const root = createRoot(document.getElementById("root"))`创建的`root`对象吗？它的结构如下，`root._internalRoot`就是这里的`root`参数。
-
-  <figure>
-    <img src="/assets/images/react_dom_root_object.jpg">
-  </figure>
-
-- `current: Fiber`：`root.current`就是这个参数。_这里的 root 指的是上面的 root 参数。_
-
-### Fiber
+### performUnitOfWork 的参数
 
 在分析 Fiber 前，我们先了解一些其他概念：
 
@@ -243,7 +346,7 @@ _贴士：这里仅仅列出一些重要属性，完整结构请查看<a href="h
 React 在内部维护了两个版本的 Fiber Tree：
 
 - current：已处理完成的版本
-- workInProgress：正在处理的版本
+- workInProgress：正在处理的版本，下文以`wip`代替
 
 它们之间使用`alternate`属性关联，这样做可以重用 Fiber 对象减少内存分配。
 
@@ -266,7 +369,7 @@ function performUnitOfWork(unitOfWork: Fiber): void {
     // If this doesn't spawn new work, complete the current work.
     completeUnitOfWork(unitOfWork);
   } else {
-    workInProgress = next;
+    wip = next;
   }
 }
 ```
@@ -277,7 +380,7 @@ function performUnitOfWork(unitOfWork: Fiber): void {
 
   - 如果没有返回下一个 Fiber，那么就调用`completeUnitOfWork`
 
-  - 否则让`workInProgress`指向下一个 Fiber，进入下一次 work loop。
+  - 否则让`wip`指向下一个 Fiber，进入下一次 work loop。
 
 ### 源码分析 4: beginWork
 
@@ -286,7 +389,7 @@ function performUnitOfWork(unitOfWork: Fiber): void {
 ```typescript
 function beginWork(
   current: Fiber | null,
-  workInProgress: Fiber,
+  wip: Fiber,
   renderLanes: Lanes
 ): Fiber | null {
   // ...
@@ -296,11 +399,7 @@ function beginWork(
 
     if (matchSomeConditon) {
       // 满足某些条件可以提前返回
-      return attemptEarlyBailoutIfNoScheduledUpdate(
-        current,
-        workInProgress,
-        renderLanes
-      );
+      return attemptEarlyBailoutIfNoScheduledUpdate(current, wip, renderLanes);
     }
   } else {
     // ...
@@ -308,7 +407,7 @@ function beginWork(
 
   // ...
 
-  switch (workInProgress.tag) {
+  switch (wip.tag) {
     // ...
     case FunctionComponent: {
       // ...
@@ -332,17 +431,9 @@ function beginWork(
 
 **提前退出 beginWork**
 
-工作循环始终从`HostRoot`开始，但是`workInProgress`自身可能没有任何更新，这时也存在不同情况：
+工作循环始终从`HostRoot`开始，但是`wip`自身可能没有任何更新，这时也存在不同情况：
 
 - 子树没有更新，返回`null`，然后进入`completeUnitOfWork`
 - 子树有更新，返回`child`
 
 _贴士：判断子树有没有更新可以通过判断<a href="https://github.com/facebook/react/blob/855b77c9bbee347735efcd626dda362db2ffae1d/packages/react-reconciler/src/ReactFiberBeginWork.js#L3609" target="_blank">workInProgress.childLanes</a> 属性，我们下面再说 lane 模型_
-
-**真正进入 begin 阶段**
-
-这时会<a href="https://github.com/facebook/react/blob/855b77c9bbee347735efcd626dda362db2ffae1d/packages/react-reconciler/src/ReactFiberBeginWork.js#L4031" target="_blank">根据不同类型做不同的处理</a>。
-
-**reconcileChildren**
-
-常见的`FunctionComponent, ClassComponent`等最终可能都会进入<a href="https://github.com/facebook/react/blob/855b77c9bbee347735efcd626dda362db2ffae1d/packages/react-reconciler/src/ReactFiberBeginWork.js#L316" target="_blank">`reconcileChildren`</a>函数。
