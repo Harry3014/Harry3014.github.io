@@ -348,6 +348,8 @@ function completeUnitOfWork(unitOfWork) {
 
 答案是：生成了一个“全新”的 Fiber tree，之所以加引号，是因为并非所有的 Fiber 都是新创建的，可能是重用了之前的 Fiber，其中的 Fiber 有可能还标记了副作用。
 
+`FiberRootNode.finishedWork`还指向了这个新的 Fiber tree，这在下一个阶段中有使用到。
+
 **什么是副作用**
 
 副作用这个词从字面上很难理解，<a href="https://beta.reactjs.org/learn/synchronizing-with-effects#what-are-effects-and-how-are-they-different-from-events" target="_blank">React 文档</a>和<a href="https://zh.wikipedia.org/zh-hans/%E5%89%AF%E4%BD%9C%E7%94%A8_(%E8%AE%A1%E7%AE%97%E6%9C%BA%E7%A7%91%E5%AD%A6)" target="_blank">维基百科</a>中有一些关于副作用的解释。在计算机科学中，副作用表示对于函数外的变量，修改了参数等等，例如在事件处理函数中更改状态，发送 http 请求，导航到其他页面等等都是副作用。我们熟知的 Hook 还有类组件的一些生命周期方法都是副作用。
@@ -374,13 +376,52 @@ Fiber 对象中有一些属性就是专门为副作用设置的：
 }
 ```
 
-属性`nexeEffect`使得有副作用的 Fiber 可以串联成一个链，我们称它为副作用链。曾经有这样一个比喻，Fiber tree 就像一颗圣诞树，副作用链就像是圣诞树上的一条彩灯。
+`flags`中就保存了副作用的 flag，例如`Placement | Update | ChildDeletion`，值得注意的是`flags`中可能保存了很多副作用。
 
-<figure>
-  <figcaption>副作用链</figcaption>
-  <img src="/assets/images/react_workloop24.png">
-</figure>
+原来的设计中，属性`nexeEffect`使得有副作用的 Fiber 可以串联成一个链，但是后来不再使用`nextEffect | firstEffect | lastEffect`，而是去遍历整颗树。
 
 ## 提交阶段
 
-提交阶段的入口是`commitRoot`函数。
+提交阶段可以拆分成下面几个子阶段：
+
+- before mutation 阶段
+
+  对 host tree（例如 DOM 树）做出修改前，例如类组件的`getSnapshotBeforeUpdate`在这个阶段被调用。
+
+- mutation 阶段
+
+  插入，修改，删除 DOM 节点等等。
+
+- layout 阶段
+
+  修改 host tree 后，在浏览器进行绘制前，例如类组件的`componentDidMount | componentDidUpdate`在这个阶段被调用。
+
+提交阶段主要包括在`commitRoot`函数中，它的精简版本如下：
+
+```javascript
+function commitRoot(root: FiberRoot) {
+  const finishedWork = root.finishedWork;
+  // The commit phase is broken into several sub-phases. We do a separate pass
+  // of the effect list for each phase: all mutation effects come before all
+  // layout effects, and so on.
+
+  // The first phase a "before mutation" phase. We use this phase to read the
+  // state of the host tree right before we mutate it. This is where
+  // getSnapshotBeforeUpdate is called.
+  commitBeforeMutationEffects(root, finishedWork);
+
+  // The next phase is the mutation phase, where we mutate the host tree.
+  commitMutationEffects(root, finishedWork);
+
+  // The work-in-progress tree is now the current tree. This must come after
+  // the mutation phase, so that the previous tree is still current during
+  // componentWillUnmount, but before the layout phase, so that the finished
+  // work is current during componentDidMount/Update.
+  root.current = finishedWork;
+
+  // The next phase is the layout phase, where we call effects that read
+  // the host tree after it's been mutated. The idiomatic use case for this is
+  // layout, but class component lifecycles also fire here for legacy reasons.
+  commitLayoutEffects(finishedWork, root, lanes);
+}
+```
