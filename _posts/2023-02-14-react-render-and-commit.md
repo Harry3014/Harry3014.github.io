@@ -149,7 +149,9 @@ function ensureRootIsScheduled(root: FiberRoot, currentTime: number) {
 
 > <a href="https://github.com/facebook/react/blob/855b77c9bbee347735efcd626dda362db2ffae1d/packages/scheduler/src/forks/Scheduler.js#L616" target="_blank">使用 MessageChannel 来调用回调</a>
 
-_选择 MessageChannel 以为回调作为事件循环模型中的 task 执行，而不是 microtask_
+**为什么选择 MessageChannel**
+
+为了实现 0ms 延时的定时器，如果选择`setTimeout(fn, 0)`，可能是无法做到的，更多可以了解<a href="https://developer.mozilla.org/zh-CN/docs/Web/API/setTimeout#%E5%AE%9E%E9%99%85%E5%BB%B6%E6%97%B6%E6%AF%94%E8%AE%BE%E5%AE%9A%E5%80%BC%E6%9B%B4%E4%B9%85%E7%9A%84%E5%8E%9F%E5%9B%A0%EF%BC%9A%E6%9C%80%E5%B0%8F%E5%BB%B6%E8%BF%9F%E6%97%B6%E9%97%B4" target="_blank">MDN</a>上的解析。
 
 ## 渲染阶段
 
@@ -174,9 +176,11 @@ _选择 MessageChannel 以为回调作为事件循环模型中的 task 执行，
 
 无论是哪一种情况，最终都会进入`performUnitOfWork`函数，我们先不讨论这个函数，我们先看这个函数的上一层：工作循环。
 
-### 工作循环
+### work loop
 
 下面是这两种工作循环的代码。
+
+> 跳转到 Github 查看源码
 
 ```javascript
 function workLoopSync() {
@@ -184,13 +188,73 @@ function workLoopSync() {
     performUnitOfWork(workInProgress);
   }
 }
+```
 
+> 跳转到 Github 查看源码
+
+```javascript
 function workLoopConcurrent() {
   while (workInProgress !== null && !shouldYield()) {
     performUnitOfWork(workInProgress);
   }
 }
 ```
+
+**workInProgess**
+
+`workInProgress`就是当前需要处理的 Fiber，可以调用下面的函数创建它：
+
+```javascript
+// This is used to create an alternate fiber to do work on.
+function createWorkInProgress(current: Fiber, pendingProps: any): Fiber {
+  let workInProgress = current.alternate;
+  if (workInProgress === null) {
+    // We use a double buffering pooling technique because we know that we'll
+    // only ever need at most two versions of a tree. We pool the "other" unused
+    // node that we're free to reuse. This is lazily created to avoid allocating
+    // extra objects for things that are never updated. It also allow us to
+    // reclaim the extra memory if needed.
+    workInProgress = createFiber(
+      current.tag,
+      pendingProps,
+      current.key,
+      current.mode
+    );
+
+    // ...省略代码
+  } else {
+    // ...省略代码
+  }
+
+  // ...省略代码
+
+  return workInProgress;
+}
+```
+
+我们从 React 源码中的注释中看到这个函数使用了双缓冲池，如果`current.alternate === null`时才创建新的 Fiber，否则可以重用之前创建的 Fiber。
+
+那么进入工作循环的第一个`workInProgress`是什么呢？
+
+答案是：`renderRootSync`或`renderRootConcurrent`中调用`prepareFreshStack`创建。
+
+```javascript
+function prepareFreshStack(root: FiberRoot, lanes: Lanes): Fiber {
+  // ...省略代码
+  const rootWorkInProgress = createWorkInProgress(root.current, null);
+  workInProgress = rootWorkInProgress;
+  // ...省略代码
+}
+```
+
+这里`FiberRoot`类型的`root`参数是哪里来的呢？
+
+答案是：调用‘react-dom’ package 的 Client API `createRoot(domNode, options?)`时创建的，`reactDOMRoot._internalRoot`就是`FiberRoot`，`FiberRoot.current`是 Fiber 节点，我们称它为 HostRoot。
+
+<figure>
+  <figcaption>FiberRoot</figcaption>
+  <img src="/assets/images/react_dom_root_object.jpg">
+</figure>
 
 **两种工作循环的差别**
 
@@ -214,162 +278,18 @@ _贴士：源码中本来还有更多判断，例如使用 Facebook 和 Chrome �
 
 如果占用主线程时间超出`frameInterval`，那么就需要让出主线程，`frameInterval`的初始值是<a href="https://github.com/facebook/react/blob/855b77c9bbee347735efcd626dda362db2ffae1d/packages/scheduler/src/SchedulerFeatureFlags.js#L14" target="_blank">5ms</a>。
 
-### performUnitOfWork 的参数
+### performUnitOfWork
 
-在分析 Fiber 前，我们先了解一些其他概念：
-
-**声明式 vs 指令式**
-
-React 使用声明式编写 UI（代替指令式），这使得开发者的工作变得更加容易，开发者只需要告诉 React 你需要显示出来的 UI 是什么样的，剩下的工作由 React 来完成。
-
-在 React 的<a href="https://beta.reactjs.org/learn/reacting-to-input-with-state#how-declarative-ui-compares-to-imperative" target="_blank">文档</a>中举了一个例子来类比：你坐上一辆车需要到某个目的地，指令式就是告诉司机什么时候直行，什么时候转向，而声明式就是直接告诉司机目的地，他会自动把你送到目的地。
-
-<figure>
-  <figcaption>指令式</figcaption>
-  <img src="/assets/images/i_imperative-ui-programming.png">
-</figure>
-
-<figure>
-  <figcaption>声明式</figcaption>
-  <img src="/assets/images/i_declarative-ui-programming.png">
-</figure>
-
-**Virtual DOM**
-
-开发者只是声明了 UI，React 会创建一些”虚拟的“内容来描述 UI 并保存在内存中，元素和 Fiber 被认为是 Virtual DOM 实现的一部分。在 React 的<a href="https://zh-hans.reactjs.org/docs/faq-internals.html#what-is-the-virtual-dom" target="_blank">文档</a>由更多关于 Virtual DOM 的描述。
-
-_贴士：其实叫 Virtul DOM 并不十分贴切，因为 React 并不是只能渲染为 DOM，还可以在移动平台上渲染为 native 视图_
-
-**协调 reconciliation**
-
-UI 从 A 状态变成 B 状态，React 需要计算出哪部分需要变化，而不是简单的重新渲染（提高性能），这个过程叫做协调。
-
-_贴士：虽然不同的 Renderer 渲染出的内容差别很大，但是协调的算法应该尽可能相似。_
-
-<figure>
-  <figcaption>reconciler & renderer</figcaption>
-  <img src="/assets/images/react_reconciler_renderer.jpg">
-</figure>
-
-在 React16 **以前**，React 使用的协调解决方案叫 Stack reconciler，这不是一个官方名称，只是由于他的处理方式与 Stack 很相似。
-
-Stack reconciler 通过传入的元素创建了一些实例，然后再创建 DOM，更新的时候更新实例，然后更新 DOM。它的处理方式一层一层向下的，先处理本元素，然后处理子元素，或者处理调用函数组件或者类组件的 render 方法返回新的元素。React<a href="https://zh-hans.reactjs.org/docs/implementation-notes.html" target="_blank">文档</a>中有 Stack reconciler 的简单实现，有兴趣可以阅读。
-
-<figure>
-  <figcaption>Stack reconciler</figcaption>
-  <img src="/assets/images/stack_reconciler.png">
-</figure>
-
-<figure>
-  <img src="/assets/images/react_element_instance_dom.jpg">
-</figure>
-
-Stack reconciler 有很明显的局限性：
-
-- 同步无法中断，如果中断了，这时浏览器需要重新绘制，那么可能导致 UI 不一致，例如上图中处理完第二个 item 后中断，这时候第一个 item 和第二个 item 的 DOM 已经发生变化了。
-
-为了解决这些问题，React16 引入了**Fiber**，我们先看一看 Fiber reconciler 是如何做的，然后再去研究细节。
-
-<figure>
-  <figcaption>Fiber reconciler</figcaption>
-  <img src="/assets/images/fiber_reconciler1.png">
-  <img src="/assets/images/fiber_reconciler2.png">
-</figure>
-
-新的协调算法将可中断的任务切分成更小的任务，在执行完一个任务片段后可以让出主线程，如果有更高优先级的任务可以在这时候执行。
-
-而且 Fiber reconciler 分成渲染和提交两个阶段，渲染阶段将所有的内容处理完成，然后在进入提交阶段进行统一渲染，这样就保证 UI 的一致性。渲染阶段可中断去执行其他任务，但是在提交阶段无法中断，否则无法保证 UI 的一致性。
-
-<figure>
-  <figcaption>React Phases</figcaption>
-  <img src="/assets/images/react_phases.png">
-</figure>
-
-**Fiber 是什么**
-
-Fiber 就是一个个小的任务单元（unit of work），你可以把它理解成原来 Stack 中的一帧，它受 React 控制：
-
-- 可以暂停（pause），然后回来继续执行未完成的任务
-- 可以中止（abort），注意与暂停的区别，这里指放弃掉
-- 可以赋予优先级
-- 可以重用
-
-_贴士：更多 Fiber 的目标可以在 React<a href="https://zh-hans.reactjs.org/docs/codebase-overview.html#fiber-reconciler" target="_blank">文档</a>中查看_
-
-**Fiber 的数据结构**
-
-Fiber 是一个有以下属性的对象：
-
-_贴士：这里仅仅列出一些重要属性，完整结构请查看<a href="https://github.com/facebook/react/blob/855b77c9bbee347735efcd626dda362db2ffae1d/packages/react-reconciler/src/ReactInternalTypes.js#L79" target="_blank">源码</a>_
-
-- tag
-
-  定义了 Fiber 的类型，<a href="https://github.com/facebook/react/blob/855b77c9bbee347735efcd626dda362db2ffae1d/packages/react-reconciler/src/ReactWorkTags.js" target="_blank">源码</a>中定义了很多种类型，例如下面这几个常见类型:
-
-  ```javascript
-  export const FunctionComponent = 0;
-  export const ClassComponent = 1;
-  export const IndeterminateComponent = 2; // Before we know whether it is function or class
-  export const HostRoot = 3; // Root of a host tree. Could be nested inside another node.
-  export const HostComponent = 5;
-  ```
-
-- key and type
-
-  key 和 type 在创建 Fiber 时都是从元素直接<a href="https://github.com/facebook/react/blob/855b77c9bbee347735efcd626dda362db2ffae1d/packages/react-reconciler/src/ReactFiber.js#L650" target="_blank">复制</a>过来的，`fiber.key = element.key; fiber.type = element.type`。
-
-  函数组件和类组件的`type`就是他们自己，宿主组件的`type`是`string`，例如`div`, `span`。
-
-- stateNode
-
-  维护了 Fiber 的本地状态，例如 DOM 节点或者类组件的实例等等。
-
-- return, child and sibling
-
-  这三个属性使得不同的 Fiber 之间建立起了联系，`fiber.child`指向第一个子节点，`fiber.return`指向父节点，`fiber.sibling`指向下一个兄弟节点。
-
-  <figure>
-    <figcaption>Fiber tree</figcaption>
-    <img src="/assets/images/fiber_structure.png">
-  </figure>
-
-- pendingProps and memoizedProps
-
-  `pendingProps`是执行 Fiber 前设置的属性，`memoizedProps`是执行 Fiber 后设置的属性。如果二者相同，那么就表示上一次 Fiber 的输出可以重用，避免重复工作。
-
-- alternate
-
-  一个组件可能不止有一个 Fiber：`current` fiber 表示当前状态，`workInProgress` fiber 表示正在处理。`current.alternate === workInProgress`并且`workInProgress.alternate === current`。
-
-**双缓冲**
-
-React 在内部维护了两个版本的 Fiber Tree：
-
-- current：已处理完成的版本
-- workInProgress：正在处理的版本，下文以`wip`代替
-
-它们之间使用`alternate`属性关联，这样做可以重用 Fiber 对象减少内存分配。
-
-<a href="https://github.com/facebook/react/blob/855b77c9bbee347735efcd626dda362db2ffae1d/packages/react-reconciler/src/ReactFiber.js#L266" target="_blank">源码</a>中创建`workInProgress`就体现了 React 使用了双缓冲解决方案。
-
-### 源码分析 3：执行任务单元 peformUnitOfWork
-
-上面我们说到 work loop 会调用<a href="https://github.com/facebook/react/blob/855b77c9bbee347735efcd626dda362db2ffae1d/packages/react-reconciler/src/ReactFiberWorkLoop.js#L2303" target="_blank">`performUnitOfWork(unitOfWork: Fiber)`</a>，第一个`unitOfWork`是`root`中保存的类型为`HostRoot`的 Fiber，下文都简称`HostRoot`。
-
-下面是这个函数的精简版本：
+如果满足工作循环的判断，那么就会进入`performUnitOfWork`，下面是这个函数的精简版本：
 
 ```javascript
-function performUnitOfWork(unitOfWork: Fiber): void {
-  const current = unitOfWork.alternate;
-  const next = beginWork(current, unitOfWork, ...);
-
-  unitOfWork.memoizedProps = unitOfWork.pendingProps;
-
+function performUnitOfWork(unitOfWork) {
+  let next = beginWork(unitOfWork);
   if (next === null) {
     // If this doesn't spawn new work, complete the current work.
     completeUnitOfWork(unitOfWork);
   } else {
-    wip = next;
+    workInProgress = next;
   }
 }
 ```
@@ -380,60 +300,87 @@ function performUnitOfWork(unitOfWork: Fiber): void {
 
   - 如果没有返回下一个 Fiber，那么就调用`completeUnitOfWork`
 
-  - 否则让`wip`指向下一个 Fiber，进入下一次 work loop。
+  - 否则让`workInProgress`指向下一个 Fiber，进入下一次工作循环。
 
-### 源码分析 4: beginWork
+**beginWork**
 
-下面是这个函数的精简版本。
+我们暂时不深入了解这个函数，现在我们仅仅需要关注它的返回值，它始终返回`workInProgress.child`或者`null`，值得注意的是`workInProgress.child`也可能是`null`。
 
-```typescript
-function beginWork(
-  current: Fiber | null,
-  wip: Fiber,
-  renderLanes: Lanes
-): Fiber | null {
-  // ...
+**completeUnitOfWork**
 
-  if (curren !== null) {
-    // ...
+如果 beginWork 返回 null，意味着这个分支已经没有需要处理的 Fiber 了，那么就可以完成当前这个 Fiber，然后可以接着处理它的兄弟节点，然后返回父节点。
 
-    if (matchSomeConditon) {
-      // 满足某些条件可以提前返回
-      return attemptEarlyBailoutIfNoScheduledUpdate(current, wip, renderLanes);
+下面是这个函数的精简版本：
+
+```javascript
+function completeUnitOfWork(unitOfWork) {
+  // Attempt to complete the current unit of work, then move to the next
+  // sibling. If there are no more siblings, return to the parent fiber.
+  let completedWork = unitOfWork;
+  do {
+    const next = completeWork(unitOfWork);
+    if (next !== null) {
+      // Completing this fiber spawned new work. Work on that next.
+      workInProgress = next;
+      return;
     }
-  } else {
-    // ...
-  }
 
-  // ...
+    const siblingFiber = completedWork.sibling;
+    if (siblingFiber !== null) {
+      // If there is more work to do in this returnFiber, do that next.
+      workInProgress = siblingFiber;
+      return;
+    }
 
-  switch (wip.tag) {
-    // ...
-    case FunctionComponent: {
-      // ...
-      return updateFunctionComponent(/*...*/);
-    }
-    case ClassComponent: {
-      // ...
-      return updateClassComponent(/*...*/);
-    }
-    case HostRoot: {
-      // ...
-      return updateHostRoot(/*...*/);
-    }
-    case HostComponent: {
-      // ...
-      return updateHostComponent(/*...*/);
-    }
-  }
+    // Otherwise, return to the parent
+    completedWork = completedWork.return;
+    // Update the next thing we're working on in case something throws.
+    workInProgress = completedWork;
+  } while (completedWork !== null);
 }
 ```
 
-**提前退出 beginWork**
+### 渲染阶段结束
 
-工作循环始终从`HostRoot`开始，但是`wip`自身可能没有任何更新，这时也存在不同情况：
+到这里渲染阶段就结束了，可以看到实际工作是在 beginWork 和 completeWork 中完成的，但是我们目前还没有深入了解这两个函数。
 
-- 子树没有更新，返回`null`，然后进入`completeUnitOfWork`
-- 子树有更新，返回`child`
+可能到这里我们有一个疑问，渲染阶段到底产出了什么呢？
 
-_贴士：判断子树有没有更新可以通过判断<a href="https://github.com/facebook/react/blob/855b77c9bbee347735efcd626dda362db2ffae1d/packages/react-reconciler/src/ReactFiberBeginWork.js#L3609" target="_blank">workInProgress.childLanes</a> 属性，我们下面再说 lane 模型_
+答案是：生成了一个“全新”的 Fiber tree，之所以加引号，是因为并非所有的 Fiber 都是新创建的，可能是重用了之前的 Fiber，其中的 Fiber 有可能还标记了副作用。
+
+**什么是副作用**
+
+副作用这个词从字面上很难理解，<a href="https://beta.reactjs.org/learn/synchronizing-with-effects#what-are-effects-and-how-are-they-different-from-events" target="_blank">React 文档</a>和<a href="https://zh.wikipedia.org/zh-hans/%E5%89%AF%E4%BD%9C%E7%94%A8_(%E8%AE%A1%E7%AE%97%E6%9C%BA%E7%A7%91%E5%AD%A6)" target="_blank">维基百科</a>中有一些关于副作用的解释。在计算机科学中，副作用表示对于函数外的变量，修改了参数等等，例如在事件处理函数中更改状态，发送 http 请求，导航到其他页面等等都是副作用。我们熟知的 Hook 还有类组件的一些生命周期方法都是副作用。
+
+还记得我们之前提到渲染阶段必须是纯函数，不能有任何副作用，否则 UI 将不受控制，所以在渲染阶段只是将副作用标记在 Fiber 上，等进入提交阶段再执行副作用。
+
+Fiber 对象中有一些属性就是专门为副作用设置的：
+
+```javascript
+{
+  // Effect
+  flags: Flags,
+  subtreeFlags: Flags,
+  deletions: Array<Fiber> | null,
+
+  // Singly linked list fast path to the next fiber with side-effects.
+  nextEffect: Fiber | null,
+
+  // The first and last fiber with side-effect within this subtree. This allows
+  // us to reuse a slice of the linked list when we reuse the work done within
+  // this fiber.
+  firstEffect: Fiber | null,
+  lastEffect: Fiber | null,
+}
+```
+
+属性`nexeEffect`使得有副作用的 Fiber 可以串联成一个链，我们称它为副作用链。曾经有这样一个比喻，Fiber tree 就像一颗圣诞树，副作用链就像是圣诞树上的一条彩灯。
+
+<figure>
+  <figcaption>副作用链</figcaption>
+  <img src="/assets/images/react_workloop24.png">
+</figure>
+
+## 提交阶段
+
+提交阶段的入口是`commitRoot`函数。
