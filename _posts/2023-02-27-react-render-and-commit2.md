@@ -1,5 +1,5 @@
 ---
-title: "深入渲染和提交"
+title: "深入渲染阶段"
 excerpt: ""
 toc: true
 toc_sticky: true
@@ -11,9 +11,9 @@ tags:
   - React
 ---
 
-之前我们已经了解了渲染和提交这两个阶段的概要，现在我们更深入了解这两个阶段的细节。
+渲染阶段的主要实质性工作在 beginWork 和 completeWork 这两个函数完成。
 
-渲染阶段的主要实质性工作在`beginWork | completeWork`这两个函数完成。
+_本文中的代码片段几乎都是精简版本，如需查看完整源码，点击代码片段下的链接跳转查看。_
 
 ## beginWork
 
@@ -66,13 +66,83 @@ function beginWork(
 }
 ```
 
-我们可以看到，在`current !== null`时有可能提前退出 beginWork，我们暂时不深入了解这种情况，毕竟初次渲染时只有`HostRoot.current !== null`。
+> <a href="https://github.com/facebook/react/blob/855b77c9bbee347735efcd626dda362db2ffae1d/packages/react-reconciler/src/ReactFiberBeginWork.js#L3936" target="_blank">查看完整源码</a>
 
-如果不满足提前退出的条件，那么会根据 fiber 的类型做不同的处理，例如调用`updateHostRoot | updateFunctionComponent | updateClassComponent`，如果类组件还没有实例，可能会在此期间创建一个实例。
+### 参数说明
 
-### reconcileChildren
+**current**
 
-多数常见类型的 fiber 会进入`reconcileChildren`函数。
+当前已渲染内容中的 fiber，可能是 null
+
+**workInProgress**
+
+此次渲染过程中待处理的 fiber
+
+**renderLanes**
+
+Lanes 模型，与优先级相关，_此文中不讨论这个内容_
+
+### 提前退出 beginWork
+
+条件 1：`current !== null`
+
+条件 2：props 和 context 没有变化，_React 源码中的注释原文_
+
+满足条件最终会调用 bailoutOnAlreadyFinishedWork。
+
+```javascript
+function bailoutOnAlreadyFinishedWork(
+  current: Fiber | null,
+  workInProgress: Fiber,
+  renderLanes: Lanes
+): Fiber | null {
+  // Check if the children have any pending work.
+  if (!includesSomeLane(renderLanes, workInProgress.childLanes)) {
+    // The children don't have any work either. We can skip them.
+    return null;
+  }
+
+  // This fiber doesn't have work, but its subtree does. Clone the child
+  // fibers and continue.
+  cloneChildFibers(current, workInProgress);
+  return workInProgress.child;
+}
+```
+
+> <a href="https://github.com/facebook/react/blob/855b77c9bbee347735efcd626dda362db2ffae1d/packages/react-reconciler/src/ReactFiberBeginWork.js#L3592" target="_blank">查看完整源码</a>
+
+两种情况：
+
+- 如果 workInProgress 的 children 没有待处理的工作，可以返回 null 继而调用 completeUnitWork。
+
+- 否则，clone current 的 children（包括 sibling），返回 workInProgress.child。
+
+思考一个问题：为什么要 clone current 的 children 呢？
+
+答案：因为创建 workInProgress 时，指向的是 current.child，现在需要返回的是待处理的 fiber。
+
+```javascript
+function createWorkInProgress(current) {
+  ...
+  workInProgress.child = current.child;
+  ...
+  return workInProgress;
+}
+```
+
+> <a href="https://github.com/facebook/react/blob/855b77c9bbee347735efcd626dda362db2ffae1d/packages/react-reconciler/src/ReactFiber.js#L324" target="_blank">查看完整源码</a>
+
+### 根据 workInProgress.tag 做不同处理
+
+如果不满足提前返回的条件，那么会根据 fiber 的类型做不同的处理，例如调用 updateHostRoot， updateFunctionComponent，updateClassComponent 等等。
+
+**类组件**
+
+类组件在此期间需要创建实例，并保存在 workInProgress.stateNode 中。
+
+> <a href="https://github.com/facebook/react/blob/855b77c9bbee347735efcd626dda362db2ffae1d/packages/react-reconciler/src/ReactFiberBeginWork.js#L1275" target="_blank">查看完整源码</a>
+
+多数常见类型的 fiber 会进入 reconcileChildren 函数，这就是 React 概念中的协调过程，其中就包含了如雷贯耳的 diffing 算法。
 
 ```javascript
 function reconcileChildren(
@@ -109,16 +179,9 @@ function reconcileChildren(
 }
 ```
 
-我们看到根据判断条件`current === null`有两种情况，`mountChildFibers`和`reconcileChildFibers`实际是调用同一个函数`createChildReconciler`创建，只是参数`shouldTrackSideEffects`不同。
+> <a href="https://github.com/facebook/react/blob/855b77c9bbee347735efcd626dda362db2ffae1d/packages/react-reconciler/src/ReactFiberBeginWork.js#L316" target="_blank">查看完整源码</a>
 
-他们的目的是一致的：都是用`nextChildren`产生一个 Fiber 赋给`workInProgress.child`。
-
-<figure>
-  <figcaption>reconcileChildren目的</figcaption>
-  <img src="/assets/images/reconcileChildren1.png">
-</figure>
-
-`createChildReconciler`返回了一个函数`reconcileChildFibers`，请注意与上面的同名变量的区别。
+reconcileChildren 根据判断条件`current === null`分为两种情况处理，但他们的目的是一致的：构造 nextChildren 对应的 fiber。所以他们调用的函数实际都由 createChildReconciler 函数创建。
 
 ```javascript
 function createChildReconciler(
@@ -130,105 +193,122 @@ function createChildReconciler(
 
   function reconcileSingleTextNode() {}
 
-  ...
-
-  // This API will tag the children with the side-effect of the reconciliation
-  // itself. They will be added to the side-effect list as we pass through the
-  // children and the parent.
-  function reconcileChildFibers(
-    returnFiber: Fiber,
-    currentFirstChild: Fiber | null,
-    newChild: any,
-    lanes: Lanes
-  ): Fiber | null {
-    // Handle object types
-    if (typeof newChild === "object" && newChild !== null) {
-      switch (newChild.$$typeof) {
-        case REACT_ELEMENT_TYPE:
-          return placeSingleChild(
-            reconcileSingleElement(
-              returnFiber,
-              currentFirstChild,
-              newChild,
-              lanes
-            )
-          );
-        case REACT_PORTAL_TYPE:
-          return placeSingleChild(
-            reconcileSinglePortal(
-              returnFiber,
-              currentFirstChild,
-              newChild,
-              lanes
-            )
-          );
-        case REACT_LAZY_TYPE:
-          const payload = newChild._payload;
-          const init = newChild._init;
-          // TODO: This function is supposed to be non-recursive.
-          return reconcileChildFibers(
-            returnFiber,
-            currentFirstChild,
-            init(payload),
-            lanes
-          );
-      }
-
-      if (isArray(newChild)) {
-        return reconcileChildrenArray(
-          returnFiber,
-          currentFirstChild,
-          newChild,
-          lanes
-        );
-      }
-
-      if (getIteratorFn(newChild)) {
-        return reconcileChildrenIterator(
-          returnFiber,
-          currentFirstChild,
-          newChild,
-          lanes
-        );
-      }
-    }
-
-    if (
-      (typeof newChild === "string" && newChild !== "") ||
-      typeof newChild === "number"
-    ) {
-      return placeSingleChild(
-        reconcileSingleTextNode(
-          returnFiber,
-          currentFirstChild,
-          "" + newChild,
-          lanes
-        )
-      );
-    }
-
-    // Remaining cases are all treated as empty.
-    return deleteRemainingChildren(returnFiber, currentFirstChild);
-  }
+  function reconcileChildFibers() {}
 
   return reconcileChildFibers;
 }
 ```
 
-我们先弄清楚`reconcileChildFibers`函数的参数：
+> <a href="https://github.com/facebook/react/blob/855b77c9bbee347735efcd626dda362db2ffae1d/packages/react-reconciler/src/ReactChildFiber.js#L267" target="_blank">查看完整源码</a>
 
-- returnFiber，类型是 Fiber，这是当前正在处理的 Fiber，也就是我们常说的 workInProgess
-- currentFirstChild，类型是 Fiber 或者 null，这是 returnFiber 在当前 Fiber 树中的那个 Fiber 的第一个子节点
-- newChild，类型未知，可能是 React 元素，数组，字符串等等，我们要将 newChild 转换为 Fiber
-- lanes，类型是 Lanes，Fiber 中优先级相关内容
+### diffing 算法
 
-在这个函数中会根据`newChild`的类型做不同的处理，例如下面这三种常见类型：
+reconcileChildren 实际就是 React 说的协调过程，这其中包含了如雷贯耳的 diffing 算法。
 
-- React 元素类型：调用`reconcileSingleElement`
-- 数组：调用`reconcileChildrenArray`
-- 字符串，数字：调用`reconcileSingleTextNode`
+**设计动机**
 
-### reconcileSingleElement
+在某一时间节点触发渲染，会创建一棵 fiber 树。在下一次触发渲染时，会产生一棵不同的 fiber 树。React 需要基于这两棵树之间的差别来判断如何高效的更新 UI，以保证当前 UI 与最新的树保持同步。
+
+此算法有一些通用的解决方案，即生成将一棵树转换成另一棵树的最小操作次数。然而，即使使用最优的算法，该算法的复杂程度仍为 O(n 3 )，其中 n 是树中元素的数量。
+
+如果在 React 中使用该算法，那么展示 1000 个元素则需要 10 亿次的比较。这个开销实在是太过高昂。于是 React 在以下两个假设的基础之上提出了一套 O(n) 的启发式算法：
+
+- 开发者可以使用 key 属性标识哪些子元素在不同的渲染中可能是不变的
+- 两个不同类型的元素会产生出不同的树
+
+所以比较两个 fiber，核心就是比较 key 和 type。
+
+下面这个函数是协调子节点的核心入口。
+
+```javascript
+// This API will tag the children with the side-effect of the reconciliation
+// itself. They will be added to the side-effect list as we pass through the
+// children and the parent.
+function reconcileChildFibers(
+  returnFiber: Fiber,
+  currentFirstChild: Fiber | null,
+  newChild: any,
+  lanes: Lanes
+): Fiber | null {
+  // Handle object types
+  if (typeof newChild === "object" && newChild !== null) {
+    switch (newChild.$$typeof) {
+      case REACT_ELEMENT_TYPE:
+        return placeSingleChild(
+          reconcileSingleElement(
+            returnFiber,
+            currentFirstChild,
+            newChild,
+            lanes
+          )
+        );
+    }
+
+    if (isArray(newChild)) {
+      return reconcileChildrenArray(
+        returnFiber,
+        currentFirstChild,
+        newChild,
+        lanes
+      );
+    }
+
+    if (getIteratorFn(newChild)) {
+      return reconcileChildrenIterator(
+        returnFiber,
+        currentFirstChild,
+        newChild,
+        lanes
+      );
+    }
+  }
+
+  if (
+    (typeof newChild === "string" && newChild !== "") ||
+    typeof newChild === "number"
+  ) {
+    return placeSingleChild(
+      reconcileSingleTextNode(
+        returnFiber,
+        currentFirstChild,
+        "" + newChild,
+        lanes
+      )
+    );
+  }
+
+  // Remaining cases are all treated as empty.
+  return deleteRemainingChildren(returnFiber, currentFirstChild);
+}
+```
+
+> <a href="https://github.com/facebook/react/blob/855b77c9bbee347735efcd626dda362db2ffae1d/packages/react-reconciler/src/ReactChildFiber.js#L1250" target="_blank">查看完整源码</a>
+
+这个函数根据 newChild 的类型做不同的处理：
+
+**object 类型**
+
+有可能是 React 元素，调用 reconcileSingleElement
+
+**数组**
+
+调用 reconcileChildrenArray
+
+**有迭代器**
+
+调用 reconcileChildrenIterator，处理与数组类似
+
+**字符串或数字**
+
+调用 reconcileSingleTextNode
+
+**不满足任何条件**
+
+删除所有 children，fiber.deletions 数组中保存需要删除的 fiber，这个 fiber 指的是 parent。
+
+### 单节点协调
+
+**单个React元素的协调**
 
 ```javascript
 function reconcileSingleElement(
@@ -242,21 +322,12 @@ function reconcileSingleElement(
   while (child !== null) {
     if (child.key === key) {
       const elementType = element.type;
-      if (elementType === REACT_FRAGMENT_TYPE) {
-        if (child.tag === Fragment) {
-          deleteRemainingChildren(returnFiber, child.sibling);
-          const existing = useFiber(child, element.props.children);
-          existing.return = returnFiber;
-          return existing;
-        }
-      } else {
-        if (child.elementType === elementType) {
-          deleteRemainingChildren(returnFiber, child.sibling);
-          const existing = useFiber(child, element.props);
-          existing.ref = coerceRef(returnFiber, child, element);
-          existing.return = returnFiber;
-          return existing;
-        }
+      if (child.elementType === elementType) {
+        deleteRemainingChildren(returnFiber, child.sibling);
+        const existing = useFiber(child, element.props);
+        existing.ref = coerceRef(returnFiber, child, element);
+        existing.return = returnFiber;
+        return existing;
       }
       // Didn't match.
       deleteRemainingChildren(returnFiber, child);
@@ -266,45 +337,61 @@ function reconcileSingleElement(
     }
     child = child.sibling;
   }
-
-  if (element.type === REACT_FRAGMENT_TYPE) {
-    const created = createFiberFromFragment(
-      element.props.children,
-      returnFiber.mode,
-      lanes,
-      element.key
-    );
-    created.return = returnFiber;
-    return created;
-  } else {
-    const created = createFiberFromElement(element, returnFiber.mode, lanes);
-    created.ref = coerceRef(returnFiber, currentFirstChild, element);
-    created.return = returnFiber;
-    return created;
-  }
+      
+  const created = createFiberFromElement(element, returnFiber.mode, lanes);
+  created.ref = coerceRef(returnFiber, currentFirstChild, element);
+  created.return = returnFiber;
+  return created;
 }
 ```
 
-上面我们说了 currentFirstChild 可能有三种情况，我们来看看这个函数是如何处理的。
+> <a href="https://github.com/facebook/react/blob/855b77c9bbee347735efcd626dda362db2ffae1d/packages/react-reconciler/src/ReactChildFiber.js#L1137" target="_blank">查看完整源码</a>
 
-- `currentFirstChild !== null`，比较 key
-  - key 相同，比较 type
-    - type 相同，使用这个 child 创建 Fiber（调用 createWorkInProgress），**并且删除其他兄弟节点**
-    - type 不同，删除这个 child**及其兄弟节点**，并创建新的 Fiber
-  - key 不同，删除这个 child
-- 否则直接创建新 Fiber
+遍历子节点，如果key和type都能匹配，返回此child的alternate fiber（如果是null就创建新的fiber）。
 
-_这中间可能穿插着一些特殊元素类型例如 Fragment，我们不做赘述_
+如果没有匹配，也创建新的fiber。
 
-为什么比较 key 是在一个循环中？
+在返回前，如果存在sibling，需要删除，因为我们只有一个React元素，所以fiber树的这个分支也仅仅只可能有一个子节点。
 
-答案：因为`currentFirstChild`可能有兄弟节点。
+**单个文本节点的协调**
 
-为什么 key 相同情况下要删除多余的兄弟节点？
+```javascript
+function reconcileSingleTextNode(
+  returnFiber: Fiber,
+  currentFirstChild: Fiber | null,
+  textContent: string,
+  lanes: Lanes,
+): Fiber {
+  // There's no need to check for keys on text nodes since we don't have a
+  // way to define them.
+  if (currentFirstChild !== null && currentFirstChild.tag === HostText) {
+    // We already have an existing node so let's just update it and delete
+    // the rest.
+    deleteRemainingChildren(returnFiber, currentFirstChild.sibling);
+    const existing = useFiber(currentFirstChild, textContent);
+    existing.return = returnFiber;
+    return existing;
+  }
+  // The existing first child is not a text node so we need to create one
+  // and delete the existing ones.
+  deleteRemainingChildren(returnFiber, currentFirstChild);
+  const created = createFiberFromText(textContent, returnFiber.mode, lanes);
+  created.return = returnFiber;
+  return created;
+}
+```
 
-答案：因为这是在处理单个 React 元素，returnFiber 只能有一个子节点。
+> <a href="https://github.com/facebook/react/blob/855b77c9bbee347735efcd626dda362db2ffae1d/packages/react-reconciler/src/ReactChildFiber.js#L1113" target="_blank">查看完整源码</a>
 
-### reconcileChildrenArray
+文本节点的协调不比较key，因为没有地方给文本节点设置key。
+
+所以如果第一个child是文本类型，返回此child的alternate fiber，否则创建新的fiber，并且也要删除多余的sibling。
+
+其实还有其他类型的单节点协调，这里就不一一介绍了，可以查看<a href="https://github.com/facebook/react/blob/855b77c9bbee347735efcd626dda362db2ffae1d/packages/react-reconciler/src/ReactChildFiber.js#L1250" target="_blank">reconcileChildFibers</a>的完整源码。
+
+### 多节点协调
+
+数组类型或者有迭代器的newChild都属于多节点协调，下面以数组类型为例，迭代器处理与数组的处理从本质上来说一样的。
 
 ```javascript
 function reconcileChildrenArray(
@@ -348,13 +435,8 @@ function reconcileChildrenArray(
     }
     lastPlacedIndex = placeChild(newFiber, lastPlacedIndex, newIdx);
     if (previousNewFiber === null) {
-      // TODO: Move out of the loop. This only happens for the first run.
       resultingFirstChild = newFiber;
     } else {
-      // TODO: Defer siblings if we're not at the right index for this slot.
-      // I.e. if we had null values before, then we want to defer this
-      // for each null value. However, we also don't want to call updateSlot
-      // with the previous one.
       previousNewFiber.sibling = newFiber;
     }
     previousNewFiber = newFiber;
@@ -438,12 +520,12 @@ function reconcileChildrenArray(
 }
 ```
 
-数组的协调要复杂一些，我们看到这个过程使用了三次循环。
+> <a href="https://github.com/facebook/react/blob/855b77c9bbee347735efcd626dda362db2ffae1d/packages/react-reconciler/src/ReactChildFiber.js#L744" target="_blank">查看完整源码</a>
 
 **第一次循环**
 
-- 取`newChildren[newIdx]`与`oldFiber`（当前 Fiber 树中的节点）调用`updateSlot`返回`newFiber`
-- 如果`newFiber === null`跳出循环
+- 取newChildren[newIdx]与oldFiber调用updateSlot返回newFiber
+- 如果newFiber === null跳出循环
 - 否则放置 newFiber
 
 ```javascript
@@ -510,3 +592,115 @@ function updateSlot(
 剩余旧的 Fiber 放进 Map 中，索引是 fiber.key 或者 fiber.index。
 
 遍历剩余的 newChidren，如果能找到匹配的旧 Fiber，那么根据情况判断是否能重用，不能就新建 Fiber。
+
+### begin 总结
+
+begin 函数中我们主要在 reconcileChildren，新创建 Fiber，删除 Fiber，复用之前的 Fiber，这里标记的副作用只有两种，Placement 和 ChildDeletion。_注意：这里我们还没有比较 props，也没有操作 DOM。_
+
+## completeWork
+
+```javascript
+function completeWork(
+  current: Fiber | null,
+  workInProgress: Fiber,
+  renderLanes: Lanes
+): Fiber | null {
+  const newProps = workInProgress.pendingProps;
+  switch (workInProgress.tag) {
+    ...
+
+    case HostComponent: {
+      const type = workInProgress.type;
+      if (current !== null && workInProgress.stateNode != null) {
+        updateHostComponent(current, workInProgress, type, newProps);
+      } else {
+        const currentHostContext = getHostContext();
+        const wasHydrated = popHydrationState(workInProgress);
+        if (wasHydrated) {
+          if (
+            prepareToHydrateHostInstance(workInProgress, currentHostContext)
+          ) {
+            // If changes to the hydrated node need to be applied at the
+            // commit-phase we mark this as such.
+            markUpdate(workInProgress);
+          }
+        } else {
+          const rootContainerInstance = getRootHostContainer();
+          const instance = createInstance(
+            type,
+            newProps,
+            rootContainerInstance,
+            currentHostContext,
+            workInProgress,
+          );
+          appendAllChildren(instance, workInProgress, false, false);
+          workInProgress.stateNode = instance;
+
+          // Certain renderers require commit-time effects for initial mount.
+          // (eg DOM renderer supports auto-focus for certain elements).
+          // Make sure such renderers get scheduled for later work.
+          if (
+            finalizeInitialChildren(
+              instance,
+              type,
+              newProps,
+              currentHostContext,
+            )
+          ) {
+            markUpdate(workInProgress);
+          }
+        }
+      }
+      return null;
+    }
+
+    ...
+  }
+}
+```
+
+completeWork 跟 beginWork 类似，也是根据 Fiber 的类型做不同的处理。这里我们简单看一下 HostComponent 的处理。
+
+- 如果`stateNode !== null`，调用`updateHostComponent`，比较两次的 props 产生一个 updateQueue。
+
+```javascript
+function updateHostComponent(
+  current: Fiber,
+  workInProgress: Fiber,
+  type: Type,
+  newProps: Props
+) {
+  // If we have an alternate, that means this is an update and we need to
+  // schedule a side-effect to do the updates.
+  const oldProps = current.memoizedProps;
+  if (oldProps === newProps) {
+    // In mutation mode, this is sufficient for a bailout because
+    // we won't touch this node even if children changed.
+    return;
+  }
+
+  // If we get updated because one of our children updated, we don't
+  // have newProps so we'll have to reuse them.
+  const instance: Instance = workInProgress.stateNode;
+  const currentHostContext = getHostContext();
+  const updatePayload = prepareUpdate(
+    instance,
+    type,
+    oldProps,
+    newProps,
+    currentHostContext
+  );
+  workInProgress.updateQueue = (updatePayload: any);
+  // If the update payload indicates that there is a change or if there
+  // is a new ref we mark this as an update. All the work is done in commitWork.
+  if (updatePayload) {
+    markUpdate(workInProgress);
+  }
+}
+```
+
+- `stateNode === null`，创建 instance，DOM render 就是创建 DOM 节点。
+
+## 总结
+
+到这里 render 阶段就结束了，这个阶段产生了一个新版本的 Fiber 树，而且某些 Fiber 也标记了 flags 和产生了 updateQueue。
