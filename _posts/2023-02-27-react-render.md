@@ -308,7 +308,7 @@ function reconcileChildFibers(
 
 ### 单节点协调
 
-**单个React元素的协调**
+**单个 React 元素的协调**
 
 ```javascript
 function reconcileSingleElement(
@@ -337,7 +337,7 @@ function reconcileSingleElement(
     }
     child = child.sibling;
   }
-      
+
   const created = createFiberFromElement(element, returnFiber.mode, lanes);
   created.ref = coerceRef(returnFiber, currentFirstChild, element);
   created.return = returnFiber;
@@ -347,11 +347,11 @@ function reconcileSingleElement(
 
 > <a href="https://github.com/facebook/react/blob/855b77c9bbee347735efcd626dda362db2ffae1d/packages/react-reconciler/src/ReactChildFiber.js#L1137" target="_blank">查看完整源码</a>
 
-遍历子节点，如果key和type都能匹配，返回此child的alternate fiber（如果是null就创建新的fiber）。
+遍历子节点，如果 key 和 type 都能匹配，返回此 child 的 alternate fiber（如果是 null 就创建新的 fiber）。
 
-如果没有匹配，也创建新的fiber。
+如果没有匹配，也创建新的 fiber。
 
-在返回前，如果存在sibling，需要删除，因为我们只有一个React元素，所以fiber树的这个分支也仅仅只可能有一个子节点。
+在返回前，如果存在 sibling，需要删除，因为我们只有一个 React 元素，所以 fiber 树的这个分支也仅仅只可能有一个子节点。
 
 **单个文本节点的协调**
 
@@ -360,7 +360,7 @@ function reconcileSingleTextNode(
   returnFiber: Fiber,
   currentFirstChild: Fiber | null,
   textContent: string,
-  lanes: Lanes,
+  lanes: Lanes
 ): Fiber {
   // There's no need to check for keys on text nodes since we don't have a
   // way to define them.
@@ -383,15 +383,15 @@ function reconcileSingleTextNode(
 
 > <a href="https://github.com/facebook/react/blob/855b77c9bbee347735efcd626dda362db2ffae1d/packages/react-reconciler/src/ReactChildFiber.js#L1113" target="_blank">查看完整源码</a>
 
-文本节点的协调不比较key，因为没有地方给文本节点设置key。
+文本节点的协调不比较 key，因为没有地方给文本节点设置 key。
 
-所以如果第一个child是文本类型，返回此child的alternate fiber，否则创建新的fiber，并且也要删除多余的sibling。
+所以如果第一个 child 是文本类型，返回此 child 的 alternate fiber，否则创建新的 fiber，并且也要删除多余的 sibling。
 
 其实还有其他类型的单节点协调，这里就不一一介绍了，可以查看<a href="https://github.com/facebook/react/blob/855b77c9bbee347735efcd626dda362db2ffae1d/packages/react-reconciler/src/ReactChildFiber.js#L1250" target="_blank">reconcileChildFibers</a>的完整源码。
 
 ### 多节点协调
 
-数组类型或者有迭代器的newChild都属于多节点协调，下面以数组类型为例，迭代器处理与数组的处理从本质上来说一样的。
+数组类型或者有迭代器的 newChild 都属于多节点协调，下面以数组类型为例，迭代器处理与数组的处理从本质上来说一样的。
 
 ```javascript
 function reconcileChildrenArray(
@@ -446,10 +446,6 @@ function reconcileChildrenArray(
   if (newIdx === newChildren.length) {
     // We've reached the end of the new children. We can delete the rest.
     deleteRemainingChildren(returnFiber, oldFiber);
-    if (getIsHydrating()) {
-      const numberOfForks = newIdx;
-      pushTreeFork(returnFiber, numberOfForks);
-    }
     return resultingFirstChild;
   }
 
@@ -468,10 +464,6 @@ function reconcileChildrenArray(
         previousNewFiber.sibling = newFiber;
       }
       previousNewFiber = newFiber;
-    }
-    if (getIsHydrating()) {
-      const numberOfForks = newIdx;
-      pushTreeFork(returnFiber, numberOfForks);
     }
     return resultingFirstChild;
   }
@@ -522,11 +514,9 @@ function reconcileChildrenArray(
 
 > <a href="https://github.com/facebook/react/blob/855b77c9bbee347735efcd626dda362db2ffae1d/packages/react-reconciler/src/ReactChildFiber.js#L744" target="_blank">查看完整源码</a>
 
-**第一次循环**
+**按顺序依次匹配**
 
-- 取newChildren[newIdx]与oldFiber调用updateSlot返回newFiber
-- 如果newFiber === null跳出循环
-- 否则放置 newFiber
+取 newChildren[newIdx]与 oldFiber 调用 updateSlot 判断是否匹配。
 
 ```javascript
 function updateSlot(
@@ -577,25 +567,38 @@ function updateSlot(
 }
 ```
 
-`updateSlot`中还是靠判断 key 是否匹配来决定是否返回 Fiber（可能新建可能复用），不匹配返回 null。
+updateSlot 中还是靠判断 key 是否匹配来决定返回值。
+
+- key 不匹配，返回 null，此次遍历结束
+- key 匹配
+  - type 匹配，复用 fiber
+  - type 不匹配，新建 fiber
 
 可以想象为两个数组分别由两个指针从前到后移动处理，key 不匹配就跳出。
 
-如果此次循环能处理完 newChildren 中的所有内容，那么就可以直接返回第一个 childFiber。
+**已到达 newChildren 终点**
 
-**第二次循环（可能发生）**
+表示已经遍历完 newChildren ，那么就可以直接返回第一个 childFiber。
 
-如果已经没有旧的 Fiber 了，那么 newChildren 中剩余的内容直接创建新的 Fiber。
+**已到达 oldFiber 终点**
 
-**第三次循环**
+如果`oldFiber === null`，那么 newChildren 剩余的 child 创建新的 fiber。
 
-剩余旧的 Fiber 放进 Map 中，索引是 fiber.key 或者 fiber.index。
+**oldFiber 和 newChildren 都没有到终点**
 
-遍历剩余的 newChidren，如果能找到匹配的旧 Fiber，那么根据情况判断是否能重用，不能就新建 Fiber。
+剩余 oldFiber 放进 Map 中，索引是 key 或者 index。
 
-### begin 总结
+遍历剩余的 newChidren：
 
-begin 函数中我们主要在 reconcileChildren，新创建 Fiber，删除 Fiber，复用之前的 Fiber，这里标记的副作用只有两种，Placement 和 ChildDeletion。_注意：这里我们还没有比较 props，也没有操作 DOM。_
+- 使用 newChildren[newIdx].key 或 newIdx 去 Map 中获取 oldFiber
+  - oldFiber 不存在，新建 fiber
+  - oldFiber 存在，判断 type 是否匹配
+    - 不匹配，新建 fiber
+    - 匹配，复用 fiber
+
+### begin 阶段的副作用标记
+
+在 begin 阶段的协调，我们只涉及到 fiber 的创建、移动、删除，所以 fiber.flags 只涉及 Placement，ChildDeletion。
 
 ## completeWork
 
@@ -607,61 +610,44 @@ function completeWork(
 ): Fiber | null {
   const newProps = workInProgress.pendingProps;
   switch (workInProgress.tag) {
-    ...
-
     case HostComponent: {
       const type = workInProgress.type;
       if (current !== null && workInProgress.stateNode != null) {
         updateHostComponent(current, workInProgress, type, newProps);
       } else {
         const currentHostContext = getHostContext();
-        const wasHydrated = popHydrationState(workInProgress);
-        if (wasHydrated) {
-          if (
-            prepareToHydrateHostInstance(workInProgress, currentHostContext)
-          ) {
-            // If changes to the hydrated node need to be applied at the
-            // commit-phase we mark this as such.
-            markUpdate(workInProgress);
-          }
-        } else {
-          const rootContainerInstance = getRootHostContainer();
-          const instance = createInstance(
-            type,
-            newProps,
-            rootContainerInstance,
-            currentHostContext,
-            workInProgress,
-          );
-          appendAllChildren(instance, workInProgress, false, false);
-          workInProgress.stateNode = instance;
+        const rootContainerInstance = getRootHostContainer();
+        const instance = createInstance(
+          type,
+          newProps,
+          rootContainerInstance,
+          currentHostContext,
+          workInProgress
+        );
+        appendAllChildren(instance, workInProgress, false, false);
+        workInProgress.stateNode = instance;
 
-          // Certain renderers require commit-time effects for initial mount.
-          // (eg DOM renderer supports auto-focus for certain elements).
-          // Make sure such renderers get scheduled for later work.
-          if (
-            finalizeInitialChildren(
-              instance,
-              type,
-              newProps,
-              currentHostContext,
-            )
-          ) {
-            markUpdate(workInProgress);
-          }
+        // Certain renderers require commit-time effects for initial mount.
+        // (eg DOM renderer supports auto-focus for certain elements).
+        // Make sure such renderers get scheduled for later work.
+        if (
+          finalizeInitialChildren(instance, type, newProps, currentHostContext)
+        ) {
+          markUpdate(workInProgress);
         }
       }
       return null;
     }
-
-    ...
   }
 }
 ```
 
-completeWork 跟 beginWork 类似，也是根据 Fiber 的类型做不同的处理。这里我们简单看一下 HostComponent 的处理。
+completeWork 跟 beginWork 类似，也是根据 fiber 的类型做不同的处理。这里我们简单看一下 HostComponent 的处理。
 
-- 如果`stateNode !== null`，调用`updateHostComponent`，比较两次的 props 产生一个 updateQueue。
+- 如果是复用的fiber，已经创建了instance（workInProgress.stateNode !== null），那么就比较两个props，如果有不同就安排副作用，等到提交阶段执行更新。
+- 否则，创建instance，如果是DOM render就创建DOM节点。
+
+在completeWork中可能给workInProgress.flags添加新的标记，例如Update标记。
 
 ```javascript
 function updateHostComponent(
@@ -699,8 +685,6 @@ function updateHostComponent(
 }
 ```
 
-- `stateNode === null`，创建 instance，DOM render 就是创建 DOM 节点。
-
 ## 总结
 
-到这里 render 阶段就结束了，这个阶段产生了一个新版本的 Fiber 树，而且某些 Fiber 也标记了 flags 和产生了 updateQueue。
+到这里 render 阶段就结束了，这个阶段产生了一个新的 fiber 树，而且某些 fiber 也标记了副作用标记 flags 和 updateQueue。
