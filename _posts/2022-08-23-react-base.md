@@ -49,13 +49,15 @@ React 使用声明式编写 UI，这使得开发者的工作变得更加容易�
 
   它的值是`string | function | class`，分别对应宿主组件，函数组件和类组件。
 
+- key
+
+  给 React 元素添加一个唯一标识可以帮助 React 区分同一个列表中的元素，这对于添加子项，删除子项，给子项排序是非常重要的。
+
 - props
 
   保存了元素的一些属性，`props.children`中包含了子元素。
 
-- key
-
-  给 React 元素添加一个唯一标识可以帮助 React 区分同一个列表中的元素，这对于添加子项，删除子项，给子项排序是非常重要的。
+- ref
 
 举个例子，`<h1 className="greeting">Hello from <i>React</i></h1>`会创建一个元素：
 
