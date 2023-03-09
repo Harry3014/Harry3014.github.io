@@ -399,6 +399,8 @@ Fiber 对象中有一些属性就是专门为副作用设置的：
 }
 ```
 
+> <a href="https://github.com/facebook/react/blob/855b77c9bbee347735efcd626dda362db2ffae1d/packages/react-reconciler/src/ReactInternalTypes.js#L79" target="_blank">查看 Fiber 完整结构</a>
+
 `flags`中就保存了副作用的 flag，例如`Placement | Update | ChildDeletion`，值得注意的是`flags`中可能保存了很多副作用。
 
 原来的设计中，属性`nexeEffect`使得有副作用的 Fiber 可以串联成一个链，但是后来不再使用`nextEffect | firstEffect | lastEffect`，而是去遍历整颗树。

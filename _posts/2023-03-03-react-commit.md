@@ -31,6 +31,8 @@ const shouldFireAfterActiveInstanceBlur = commitBeforeMutationEffects(
 );
 ```
 
+> <a href="https://github.com/facebook/react/blob/855b77c9bbee347735efcd626dda362db2ffae1d/packages/react-reconciler/src/ReactFiberWorkLoop.js#L2752" target="_blank">查看完整源码</a>
+
 在此阶段可以在修改 host tree 前读取他的状态，这也是调用 getSnapshotBeforeUpdate 声明周期函数的地方。
 
 ```javascript
@@ -105,6 +107,8 @@ function commitBeforeMutationEffectsOnFiber(finishedWork: Fiber) {
 }
 ```
 
+>  <a href="https://github.com/facebook/react/blob/855b77c9bbee347735efcd626dda362db2ffae1d/packages/react-reconciler/src/ReactFiberCommitWork.js#L364" target="_blank">查看完整源码</a>
+
 这个过程从 HostRoot 开始遍历，如果 fiber.subtreeFlags 完全匹配不上 BeforeMutationMask，那么就可以 commitBeforeMutationEffectsOnFiber，这个函数中也是根据 fiber 类型做不同的处理，ClassComponent 会调用 getSnapshotBeforeUpdate 声明周期函数。
 
 处理完本 fiber 后，判断 sibling 是否需要处理，sibling 处理完成后返回 parent，逻辑与 completeUnitOfWork 类似。
@@ -164,6 +168,8 @@ function recursivelyTraverseMutationEffects(
   }
 }
 ```
+
+> <a href="https://github.com/facebook/react/blob/855b77c9bbee347735efcd626dda362db2ffae1d/packages/react-reconciler/src/ReactFiberCommitWork.js#L2476" target="_blank">查看完整源码</a>
 
 **删除副作用**
 
@@ -252,6 +258,8 @@ commitLayoutEffectOnFiber也是根据fiber的类型做不同处理，处理方�
 在Update时，挂载时调用componentDidMount，更新时调用componentDidUpdte。
 
 有一些fiber还会绑定ref。
+
+>  <a href="https://github.com/facebook/react/blob/855b77c9bbee347735efcd626dda362db2ffae1d/packages/react-reconciler/src/ReactFiberCommitWork.js#L2984" target="_blank">查看完整源码</a>
 
 ## 三个阶段之外
 

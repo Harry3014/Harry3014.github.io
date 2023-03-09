@@ -59,6 +59,8 @@ React 使用声明式编写 UI，这使得开发者的工作变得更加容易�
 
 - ref
 
+  指定的ref对象。
+
 举个例子，`<h1 className="greeting">Hello from <i>React</i></h1>`会创建一个元素：
 
 ```javascript
@@ -196,33 +198,57 @@ Fiber 对象包含下列属性：
 
 - tag
 
-  定义了 Fiber 的类型，<a href="https://github.com/facebook/react/blob/855b77c9bbee347735efcd626dda362db2ffae1d/packages/react-reconciler/src/ReactWorkTags.js" target="_blank">源码</a>中定义了很多种类型，例如下面这几个常见类型:
+  Fiber 的类型，<a href="https://github.com/facebook/react/blob/855b77c9bbee347735efcd626dda362db2ffae1d/packages/react-reconciler/src/ReactWorkTags.js" target="_blank">源码</a>中定义了很多种类型，例如下面这几个常见类型:
 
   ```javascript
   export const FunctionComponent = 0;
   export const ClassComponent = 1;
-  export const IndeterminateComponent = 2; // Before we know whether it is function or class
-  export const HostRoot = 3; // Root of a host tree. Could be nested inside another node.
+  // Before we know whether it is function or class
+  export const IndeterminateComponent = 2; 
+  // Root of a host tree. Could be nested inside another node.
+  export const HostRoot = 3; 
   export const HostComponent = 5;
   ```
 
-- key and type
+- key
 
-  key 和 type 在创建 Fiber 时都是从元素直接<a href="https://github.com/facebook/react/blob/855b77c9bbee347735efcd626dda362db2ffae1d/packages/react-reconciler/src/ReactFiber.js#L650" target="_blank">复制</a>过来的，`fiber.key = element.key; fiber.type = element.type`。
+  fiber的唯一性表示，如果是元素对应的fiber，那么从element.key复制。
 
-  函数组件和类组件的`type`就是他们自己，宿主组件的`type`是`string`，例如`div`, `span`。
+- elementType
+
+  如果是元素对应的fiber，那么从element.type复制。
+
+- type
+
+  已经处理过的类型，与elementType类似。
 
 - stateNode
 
   维护了 Fiber 的本地状态，例如 DOM 节点或者类组件的实例等等。
 
-- return, child and sibling
+- return, child, sibling
 
   这三个属性使得不同的 Fiber 之间建立起了联系，`fiber.child`指向第一个子节点，`fiber.return`指向父节点，`fiber.sibling`指向下一个兄弟节点。
 
-- pendingProps and memoizedProps
+- index
 
-  `pendingProps`是执行 Fiber 前设置的属性，`memoizedProps`是执行 Fiber 后设置的属性。如果二者相同，那么就表示上一次 Fiber 的输出可以重用，避免重复工作。
+  fiber在同层级children中的index。
+
+- pendingProps, memoizedProps
+
+  `pendingProps`是处理 Fiber 前设置的属性，`memoizedProps`是处理完 Fiber 后设置的属性。
+
+- memoizedState
+
+  state相关，部分hook就保存在其中
+
+- flags, subtreeFlags, deletions
+
+  副作用相关
+
+- lane, childLanes
+
+  优先级相关
 
 - alternate
 
@@ -230,13 +256,12 @@ Fiber 对象包含下列属性：
 
 **Fiber tree**
 
-Fiber 中的属性`return, child, sibling`使得 Fiber 之间建立了联系，构成了 Fiber 树，根结点叫做`HostRoot`。
+Fiber 中的属性`return, child, sibling`使得 Fiber 之间建立了联系，构成了 Fiber 树，根结点叫做`HostRoot`，根节点保存在FiberRootNode.current上，并且`HostRoot.stateNode === FiberRootNode`。
 
 <figure>
   <figcaption>Fiber tree</figcaption>
   <img src="/assets/images/fiber_structure.png">
 </figure>
-
 **双缓冲**
 
 React 在内部维护了两个版本的 Fiber Tree：

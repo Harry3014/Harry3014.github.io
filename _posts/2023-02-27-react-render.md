@@ -567,6 +567,8 @@ function updateSlot(
 }
 ```
 
+> <a href="https://github.com/facebook/react/blob/855b77c9bbee347735efcd626dda362db2ffae1d/packages/react-reconciler/src/ReactChildFiber.js#L566" target="_blank">查看完整源码</a>
+
 updateSlot 中还是靠判断 key 是否匹配来决定返回值。
 
 - key 不匹配，返回 null，此次遍历结束
@@ -642,6 +644,8 @@ function completeWork(
 }
 ```
 
+> <a href="https://github.com/facebook/react/blob/855b77c9bbee347735efcd626dda362db2ffae1d/packages/react-reconciler/src/ReactFiberCompleteWork.js#L872" target="_blank">查看完整源码</a>
+
 completeWork 跟 beginWork 类似，也是根据 fiber 的类型做不同的处理。这里我们简单看一下 HostComponent 的处理。
 
 - 如果是复用的fiber，已经创建了instance（workInProgress.stateNode !== null），那么就比较两个props，如果有不同就安排副作用，等到提交阶段执行更新。
@@ -684,6 +688,8 @@ function updateHostComponent(
   }
 }
 ```
+
+> <a href="https://github.com/facebook/react/blob/855b77c9bbee347735efcd626dda362db2ffae1d/packages/react-reconciler/src/ReactFiberCompleteWork.js#L264" target="_blank">查看完整源码</a>
 
 ## 总结
 
