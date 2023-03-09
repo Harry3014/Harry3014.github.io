@@ -245,7 +245,7 @@ function mountWorkInProgressHook() {
 }
 ```
 
-workInProgressHook和currentHook变量分别保存了两个hook list。
+workInProgressHook 和 currentHook 变量分别保存了两个 hook list。
 
 ```javascript
 // Hooks are stored as a linked list on the fiber's memoizedState field. The
@@ -256,7 +256,71 @@ let currentHook: Hook | null = null;
 let workInProgressHook: Hook | null = null;
 ```
 
-初始化hook后，返回带有initialState和set函数的数组。
+初始化 hook 后，返回带有 initialState 和 set 函数的数组。
 
 **update**
 
+调用 set 函数触发 state 的更新，我们看看 set 函数。
+
+```javascript
+function dispatchSetState(fiber, queue, action) {
+  const lane = requestUpdateLane(fiber);
+  const update = {
+    lane: lane,
+    action: action,
+    hasEagerState: false,
+    eagerState: null,
+    next: null,
+  };
+
+  if (isRenderPhaseUpdate(fiber)) {
+    enqueueRenderPhaseUpdate(queue, update);
+  } else {
+    const root = enqueueConcurrentHookUpdate(fiber, queue, update, lane);
+    if (root !== null) {
+      const eventTime = requestEventTime();
+      scheduleUpdateOnFiber(root, fiber, lane, eventTime);
+      entangleTransitionUpdate(root, queue, lane);
+    }
+  }
+}
+```
+
+**fiber & queue**
+
+fiber 和 queue 都是 mountState 时绑定在 dispatchSetState 函数上的。
+
+**action**
+
+action 是 nextState，可能是一个函数。
+
+set 函数的核心内容是：
+
+- 创建一个 udpate 对象
+- 把 update 放进 hook 的 queue 中
+
+无论如何，最终 queue 的结构如下：
+
+<figure>
+  <img src="/assets/images/hook-queue.png" />
+</figure>
+如果不是渲染阶段调用更新，那么就安排新的渲染。
+
+下面我们开始分析state的更新，更新state调用的是dispatcher的updateState函数。
+
+
+```javascript
+function updateState(initialState) {
+  return updateReducer(basicStateReducer);
+}
+```
+
+useState 和 useReducer 都是关于 state，useState 的状态更新逻辑也可以写为一个 reducer 函数，思考一下为什么？
+
+答案：因为他们的目的是相同的，都是返回一个新的 state，区别仅仅是 state reducer 的 action 参数并非标准的带有 type 属性的对象。
+
+```javascript
+function basicStateReducer(state, action) {
+  return typeof action === "function" ? action(state) : action;
+}
+```
