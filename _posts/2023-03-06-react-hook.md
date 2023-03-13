@@ -89,6 +89,11 @@ function updateFunctionComponent(
     renderLanes
   );
 
+  if (current !== null && !didReceiveUpdate) {
+    bailoutHooks(current, workInProgress, renderLanes);
+    return bailoutOnAlreadyFinishedWork(current, workInProgress, renderLanes);
+  }
+
   reconcileChildren(current, workInProgress, nextChildren, renderLanes);
   return workInProgress.child;
 }
@@ -194,7 +199,7 @@ const HooksDispatcherOnUpdate: Dispatcher = {
 };
 ```
 
-<a href="https://github.com/facebook/react/blob/855b77c9bbee347735efcd626dda362db2ffae1d/packages/react-reconciler/src/ReactFiberHooks.js#L2790" target="_blank">多种dispatcher</a>
+<a href="https://github.com/facebook/react/blob/855b77c9bbee347735efcd626dda362db2ffae1d/packages/react-reconciler/src/ReactFiberHooks.js#L2790" target="_blank">多种 dispatcher</a>
 
 他们对应的 hook api 的实际函数是不同的，例如`HooksDispatcherOnMount.useState = mountState`，然而`HooksDispatcherOnUpdate.useState = updateState`。_源码中还有其他的 dispatcher_
 
@@ -272,7 +277,7 @@ let workInProgressHook: Hook | null = null;
 
 初始化 hook 后，返回带有 initialState 和 set 函数的数组。
 
-**触发update**
+**触发 update**
 
 调用 set 函数触发 state 的更新，我们看看 set 函数。
 
@@ -312,7 +317,7 @@ action 是 nextState，可能是一个函数。
 
 set 函数的核心内容是：
 
-- 创建一个 udpate 对象，update对象的结构如下，next指向下一个update形成一个链表
+- 创建一个 udpate 对象，update 对象的结构如下，next 指向下一个 update 形成一个链表
 
   ```javascript
   type Update<S, A> = {
@@ -431,7 +436,7 @@ function updateReducer(reducer, initialArg, init) {
 - 获取当前的 hook
 - hook.baseQueue 中可能还有之前的 update，一并把 pendingQueue 合并到 baseQueue 中
 - 遍历 baseQueue，调用 reducer 得到 newState
-- 比较 newState 和 hook.memoizedState，不同才表示有更新
+- 比较 newState 和 hook.memoizedState，不同才表示有更新（这个标志会在updateFunctionComponent中使用到）
 - 返回 newState 和 dispatch 函数
 
 如果有兴趣了解，下面是获取当前 hook 的代码。
@@ -506,65 +511,72 @@ function updateWorkInProgressHook() {
 
 ```javascript
 function mountReducer(reducer, initialArg, init) {
-    const hook = mountWorkInProgressHook();
-    let initialState;
+  const hook = mountWorkInProgressHook();
+  let initialState;
 
-    if (init !== undefined) {
-      initialState = init(initialArg);
-    } else {
-      initialState = initialArg;
-    }
-
-    hook.memoizedState = hook.baseState = initialState;
-    const queue = {
-      pending: null,
-      interleaved: null,
-      lanes: NoLanes,
-      dispatch: null,
-      lastRenderedReducer: reducer,
-      lastRenderedState: initialState
-    };
-    hook.queue = queue;
-    const dispatch = queue.dispatch = dispatchReducerAction.bind(null, currentlyRenderingFiber, queue);
-    return [hook.memoizedState, dispatch];
+  if (init !== undefined) {
+    initialState = init(initialArg);
+  } else {
+    initialState = initialArg;
   }
+
+  hook.memoizedState = hook.baseState = initialState;
+  const queue = {
+    pending: null,
+    interleaved: null,
+    lanes: NoLanes,
+    dispatch: null,
+    lastRenderedReducer: reducer,
+    lastRenderedState: initialState,
+  };
+  hook.queue = queue;
+  const dispatch = (queue.dispatch = dispatchReducerAction.bind(
+    null,
+    currentlyRenderingFiber,
+    queue
+  ));
+  return [hook.memoizedState, dispatch];
+}
 ```
 
 <a href="https://github.com/facebook/react/blob/855b77c9bbee347735efcd626dda362db2ffae1d/packages/react-reconciler/src/ReactFiberHooks.js#L1032" target="_blank">查看完整源码</a>
 
-逻辑基本与mountState一致。
+逻辑基本与 mountState 一致。
 
-**触发update**
+**触发 update**
 
-与触发update state基本一致，只是没有提前跳出的部分。
+与触发 update state 基本一致，只是没有提前跳出的部分。
 
 ```javascript
 function dispatchReducerAction(fiber, queue, action) {
-    const lane = requestUpdateLane(fiber);
-    const update = {
-      lane: lane,
-      action: action,
-      hasEagerState: false,
-      eagerState: null,
-      next: null
-    };
+  const lane = requestUpdateLane(fiber);
+  const update = {
+    lane: lane,
+    action: action,
+    hasEagerState: false,
+    eagerState: null,
+    next: null,
+  };
 
-    if (isRenderPhaseUpdate(fiber)) {
-      enqueueRenderPhaseUpdate(queue, update);
-    } else {
-      const root = enqueueConcurrentHookUpdate(fiber, queue, update, lane);
+  if (isRenderPhaseUpdate(fiber)) {
+    enqueueRenderPhaseUpdate(queue, update);
+  } else {
+    const root = enqueueConcurrentHookUpdate(fiber, queue, update, lane);
 
-      if (root !== null) {
-        const eventTime = requestEventTime();
-        scheduleUpdateOnFiber(root, fiber, lane, eventTime);
-        entangleTransitionUpdate(root, queue, lane);
-      }
+    if (root !== null) {
+      const eventTime = requestEventTime();
+      scheduleUpdateOnFiber(root, fiber, lane, eventTime);
+      entangleTransitionUpdate(root, queue, lane);
     }
   }
+}
 ```
 
 <a href="https://github.com/facebook/react/blob/855b77c9bbee347735efcd626dda362db2ffae1d/packages/react-reconciler/src/ReactFiberHooks.js#L2566" target="_blank">查看完整源码</a>
 
 **update**
 
-useState和useReducer共用updateReducer。
+useState 和 useReducer 共用 updateReducer。
+
+### useEffect
+

@@ -240,7 +240,7 @@ Fiber 对象包含下列属性：
 
 - memoizedState
 
-  state相关，部分hook就保存在其中
+  state相关，用于创建输出。类组件：保存了state。函数组件：保存了hook。
 
 - flags, subtreeFlags, deletions
 
