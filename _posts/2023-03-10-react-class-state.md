@@ -71,6 +71,7 @@ function constructClassInstance(
   ctor: any,
   props: any
 ): any {
+  let instance = new ctor(props, context);
   workInProgress.memoizedState =
     instance.state !== null && instance.state !== undefined
       ? instance.state
@@ -238,7 +239,7 @@ function enqueueConcurrentClassUpdate(fiber, queue, update, lane) {
 }
 ```
 
-有没有发现这个内容其实与 useState hook 是一样的，dispatchSetState 也是创建一个 udpate 对象（结构相比这里略微不同）放进 hook 的 queue 中。
+有没有发现这个内容其实与 useState hook 是一样的，dispatchSetState 也是创建一个 update 对象（结构相比这里略微不同）放进 hook 的 queue 中。
 
 ## update
 

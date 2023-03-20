@@ -436,7 +436,7 @@ function updateReducer(reducer, initialArg, init) {
 - 获取当前的 hook
 - hook.baseQueue 中可能还有之前的 update，一并把 pendingQueue 合并到 baseQueue 中
 - 遍历 baseQueue，调用 reducer 得到 newState
-- 比较 newState 和 hook.memoizedState，不同才表示有更新（这个标志会在updateFunctionComponent中使用到）
+- 比较 newState 和 hook.memoizedState，不同才表示有更新（这个标志会在 updateFunctionComponent 中使用到）
 - 返回 newState 和 dispatch 函数
 
 如果有兴趣了解，下面是获取当前 hook 的代码。
@@ -580,3 +580,257 @@ useState 和 useReducer 共用 updateReducer。
 
 ### useEffect
 
+**mount**
+
+```javascript
+function mountEffect(
+  create: () => (() => void) | void,
+  deps: Array<mixed> | void | null
+): void {
+  mountEffectImpl(
+    PassiveEffect | PassiveStaticEffect,
+    HookPassive,
+    create,
+    deps
+  );
+}
+
+function mountEffectImpl(
+  fiberFlags: Flags,
+  hookFlags: HookFlags,
+  create: () => (() => void) | void,
+  deps: Array<mixed> | void | null
+): void {
+  const hook = mountWorkInProgressHook();
+  const nextDeps = deps === undefined ? null : deps;
+  currentlyRenderingFiber.flags |= fiberFlags;
+  hook.memoizedState = pushEffect(
+    HookHasEffect | hookFlags,
+    create,
+    undefined,
+    nextDeps
+  );
+}
+
+function pushEffect(
+  tag: HookFlags,
+  create: () => (() => void) | void,
+  destroy: (() => void) | void,
+  deps: Array<mixed> | void | null
+): Effect {
+  const effect: Effect = {
+    tag,
+    create,
+    destroy,
+    deps,
+    // Circular
+    next: (null: any),
+  };
+  let componentUpdateQueue: null | FunctionComponentUpdateQueue =
+    (currentlyRenderingFiber.updateQueue: any);
+  if (componentUpdateQueue === null) {
+    componentUpdateQueue = createFunctionComponentUpdateQueue();
+    currentlyRenderingFiber.updateQueue = (componentUpdateQueue: any);
+    componentUpdateQueue.lastEffect = effect.next = effect;
+  } else {
+    const lastEffect = componentUpdateQueue.lastEffect;
+    if (lastEffect === null) {
+      componentUpdateQueue.lastEffect = effect.next = effect;
+    } else {
+      const firstEffect = lastEffect.next;
+      lastEffect.next = effect;
+      effect.next = firstEffect;
+      componentUpdateQueue.lastEffect = effect;
+    }
+  }
+  return effect;
+}
+```
+
+这个过程其实很简单
+
+- 创建 effect 对象，他的结构如下，我们一一说明他的属性
+
+  ```javascript
+  type Effect = {
+    tag: HookFlags,
+    create: () => (() => void) | void,
+    destroy: (() => void) | void,
+    deps: Array<mixed> | void | null,
+    next: Effect,
+  };
+  ```
+
+  **tag**
+
+  effect 的类型，因为不止 useEffect 这一种副作用，还有 layout effect，insertion effect 等等。
+
+  ```javascript
+  export const NoFlags = /*   */ 0b0000;
+
+  // Represents whether effect should fire.
+  export const HasEffect = /* */ 0b0001;
+
+  // Represents the phase in which the effect (not the clean-up) fires.
+  export const Insertion = /* */ 0b0010;
+  export const Layout = /*    */ 0b0100;
+  export const Passive = /*   */ 0b1000;
+  ```
+
+  **create**
+
+  setup 函数
+
+  **destroy**
+
+  cleanup 函数
+
+  **deps**
+
+  依赖
+
+  **next**
+
+  下一个 effect
+
+- 将 effect 放入`fiber.updateQueue`中，`fiber.updateQueue.lastEffect`指向最后一个 effect，`fiber.updateQueue.lastEffect.next`指向第一个 effect，所以他是一个循环链表。
+
+**update**
+
+```javascript
+function updateEffect(
+  create: () => (() => void) | void,
+  deps: Array<mixed> | void | null
+): void {
+  updateEffectImpl(PassiveEffect, HookPassive, create, deps);
+}
+
+function updateEffectImpl(
+  fiberFlags: Flags,
+  hookFlags: HookFlags,
+  create: () => (() => void) | void,
+  deps: Array<mixed> | void | null
+): void {
+  const hook = updateWorkInProgressHook();
+  const nextDeps = deps === undefined ? null : deps;
+  let destroy = undefined;
+
+  if (currentHook !== null) {
+    const prevEffect = currentHook.memoizedState;
+    destroy = prevEffect.destroy;
+    if (nextDeps !== null) {
+      const prevDeps = prevEffect.deps;
+      if (areHookInputsEqual(nextDeps, prevDeps)) {
+        hook.memoizedState = pushEffect(hookFlags, create, destroy, nextDeps);
+        return;
+      }
+    }
+  }
+
+  currentlyRenderingFiber.flags |= fiberFlags;
+
+  hook.memoizedState = pushEffect(
+    HookHasEffect | hookFlags,
+    create,
+    destroy,
+    nextDeps
+  );
+}
+```
+
+update 与 mount 类似，但是需要判断依赖是否改变，如果没有改变，那么此 effect 将不会添加 HookHasEffect 这个 flag。
+
+**执行 effect**
+
+我们在介绍渲染提交阶段提到过，渲染阶段需要保持纯净，副作用都在提交阶段执行。
+
+在提交阶段有多个入口执行副作用，可能同步也可能异步（异步的可能性高），都是在提交阶段三个子阶段完成后才执行，执行副作用的函数一样的。
+
+```javascript
+function flushPassiveEffectsImpl() {
+  commitPassiveUnmountEffects(root.current);
+  commitPassiveMountEffects(root, root.current, lanes, transitions);
+}
+```
+
+- 卸载副作用：执行 cleanup 函数
+- 挂载副作用：执行 setup 函数，返回值作为 effect.destroy
+
+执行的过程与 layout effect 一样是递归的。
+
+### useContext
+
+**创建context**
+
+```javascript
+function createContext(defaultValue) {
+  const context = {
+    $$typeof: REACT_CONTEXT_TYPE,
+    _currentValue: defaultValue,
+    Provider: null,
+    Consumer: null,
+  };
+  context.Provider = {
+    $$typeof: REACT_PROVIDER_TYPE,
+    _context: context,
+  };
+  context.Consumer = context;
+  return context;
+}
+```
+
+创建 context 对象，他的属性应该都比较好理解。
+
+**提供context**
+
+使用`<SomeContext.Provider value={newValue}>`提供 context。在 beginWork 中处理如下。
+
+```javascript
+function beginWork(current, workInProgress, renderLanes) {
+  switch (workInProgress.tag) {
+    case ContextProvider:
+      return updateContextProvider(current, workInProgress, renderLanes);
+  }
+}
+
+function updateContextProvider(current, workInProgress, renderLanes) {
+  const context = providerType._context;
+
+  const newProps = workInProgress.pendingProps;
+  const oldProps = workInProgress.memoizedProps;
+
+  const newValue = newProps.value;
+
+  // 更新context._currentValue = newValue
+  context._currentValue = newValue;
+
+  if (oldProps !== null) {
+    const oldValue = oldProps.value;
+    if (is(oldValue, newValue)) {
+      // No change. Bailout early if children are the same.
+      if (
+        oldProps.children === newProps.children &&
+        !hasLegacyContextChanged()
+      ) {
+        return bailoutOnAlreadyFinishedWork(
+          current,
+          workInProgress,
+          renderLanes
+        );
+      }
+    } else {
+      // The context value changed. Search for matching consumers and schedule
+      // them to update.
+      propagateContextChange(workInProgress, context, renderLanes);
+    }
+  }
+
+  const newChildren = newProps.children;
+  reconcileChildren(current, workInProgress, newChildren, renderLanes);
+  return workInProgress.child;
+}
+```
+
+**使用context**
+
+返回context._currentValue
