@@ -65,3 +65,25 @@ console.log("code");
 如果在执行微任务时添加一个微任务，那么这个微任务会在下一个宏任务前执行，因为要保证微任务队列中的所有任务都执行完成才会开始下一个宏任务。
 
 这个模型有一个缺点，那就是由于同一时间只能处理一个任务，如果这个任务需要很长时间处理，那用户无法跟页面进行交互。
+
+```javascript
+while(true) {
+  queue = getNextQueue();
+  task = queue.pop();
+  excute(task);
+  
+  while(microTaskQueue.hasTasks()) {
+    doMicroTask();
+  }
+  
+  if(isRepaintTime()) {
+    animationTasks = animationQueue.copyTasks();
+    for (task in animationTasks) {
+      doAnimationTask(task);
+    }
+    
+    repaint();
+  }
+}
+```
+

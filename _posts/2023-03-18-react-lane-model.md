@@ -11,15 +11,15 @@ tags:
   - React
 ---
 
-这边文章我们来分析react的优先级系统。react中存在着多个优先级相关的内容，下面我们一一进行说明。
+这边文章我们来分析 react 的优先级系统。react 中存在着多个优先级相关的内容，下面我们一一进行说明。
 
-## Lanes模型
+## Lanes 模型
 
-### 定义
+### 数据结构
 
-lane最初是在fiber reconciler中提出的，是为了替换原先的 expiration time模型，他的值是一个32位的二进制。
+lane 最初是在 fiber reconciler 中提出的，是为了替换原先的 expiration time 模型，他的值是一个 32 位的二进制。
 
-react中定义了很多种lane优先级，数值越小优先级越高（0是个例外）。
+react 中定义了很多种 lane 优先级，数值越小优先级越高（0 是个例外）。
 
 ```javascript
 export const NoLane: Lane = /*                          */ 0b0000000000000000000000000000000;
@@ -29,7 +29,7 @@ export const DefaultLane: Lane = /*                     */ 0b0000000000000000000
 
 <a href="https://github.com/facebook/react/pull/18796" target="_blank">Initial Lanes implementation by acdlite · Pull Request #18796 · facebook/react</a>
 
-由于lane的值是二进制数值，所以通过位运算操作起来非常方便，下面列举几种代表操作。
+由于 lane 的值是二进制数值，所以通过位运算操作起来非常方便，下面列举几种代表操作。
 
 ```javascript
 export function getHighestPriorityLane(lanes: Lanes): Lane {
@@ -57,11 +57,11 @@ export function intersectLanes(a: Lanes | Lane, b: Lanes | Lane): Lanes {
 }
 ```
 
-### 使用
+### 从触发渲染开始
 
-lane使用场景有很多，我们就只介绍在fiber中的使用情况。
+**创建lane**
 
-无论是初次渲染，还是调用了useState的set函数，class组件的`this.setState`，useReducer的dispatch函数，都会调用一个叫requestUpdateLane的函数。
+无论是初次渲染 updateContainer，还是调用了 useState 的 set 函数，class 组件的`this.setState`，useReducer 的 dispatch 函数，都会调用一个叫 requestUpdateLane 的函数创建 lane。
 
 ```javascript
 export function requestUpdateLane(fiber: Fiber): Lane {
@@ -107,7 +107,6 @@ export function requestUpdateLane(fiber: Fiber): Lane {
   //
   // The opaque type returned by the host config is internally a lane, so we can
   // use that directly.
-  // TODO: Move this type conversion to the event priority module.
   const updateLane: Lane = (getCurrentUpdatePriority(): any);
   if (updateLane !== NoLane) {
     return updateLane;
@@ -118,21 +117,158 @@ export function requestUpdateLane(fiber: Fiber): Lane {
   //
   // The opaque type returned by the host config is internally a lane, so we can
   // use that directly.
-  // TODO: Move this type conversion to the event priority module.
   const eventLane: Lane = (getCurrentEventPriority(): any);
   return eventLane;
 }
 ```
 
-主要关注getCurrentUpdatePriority。
+requestUpdateLane 函数中我们重点关注三类情况：
 
-获取到当前优先级后，会设置在fiber.lanes上，并且会向上给祖先设置childLanes，也会设置在root的pendingLanes上。
+- 过渡（transition）
+
+  返回的是 TransitionLane，他的优先级比所有的同步优先级都低
+
+  ```javascript
+  export const SyncHydrationLane: Lane = /*               */ 0b0000000000000000000000000000001;
+  export const SyncLane: Lane = /*                        */ 0b0000000000000000000000000000010;
+
+  export const InputContinuousHydrationLane: Lane = /*    */ 0b0000000000000000000000000000100;
+  export const InputContinuousLane: Lane = /*             */ 0b0000000000000000000000000001000;
+
+  export const DefaultHydrationLane: Lane = /*            */ 0b0000000000000000000000000010000;
+  export const DefaultLane: Lane = /*                     */ 0b0000000000000000000000000100000;
+
+  export const SyncUpdateLanes: Lane = /*                 */ 0b0000000000000000000000000101010;
+
+  const TransitionHydrationLane: Lane = /*                */ 0b0000000000000000000000001000000;
+  const TransitionLanes: Lanes = /*                       */ 0b0000000011111111111111110000000;
+  const TransitionLane1: Lane = /*                        */ 0b0000000000000000000000010000000;
+  const TransitionLane2: Lane = /*                        */ 0b0000000000000000000000100000000;
+  const TransitionLane3: Lane = /*                        */ 0b0000000000000000000001000000000;
+  const TransitionLane4: Lane = /*                        */ 0b0000000000000000000010000000000;
+  const TransitionLane5: Lane = /*                        */ 0b0000000000000000000100000000000;
+  const TransitionLane6: Lane = /*                        */ 0b0000000000000000001000000000000;
+  const TransitionLane7: Lane = /*                        */ 0b0000000000000000010000000000000;
+  const TransitionLane8: Lane = /*                        */ 0b0000000000000000100000000000000;
+  const TransitionLane9: Lane = /*                        */ 0b0000000000000001000000000000000;
+  const TransitionLane10: Lane = /*                       */ 0b0000000000000010000000000000000;
+  const TransitionLane11: Lane = /*                       */ 0b0000000000000100000000000000000;
+  const TransitionLane12: Lane = /*                       */ 0b0000000000001000000000000000000;
+  const TransitionLane13: Lane = /*                       */ 0b0000000000010000000000000000000;
+  const TransitionLane14: Lane = /*                       */ 0b0000000000100000000000000000000;
+  const TransitionLane15: Lane = /*                       */ 0b0000000001000000000000000000000;
+  const TransitionLane16: Lane = /*                       */ 0b0000000010000000000000000000000;
+  ```
+
+- 起源于 react 内部方法设置的优先级，例如 flushSync
+
+  ```javascript
+  function flushSync(fn) {
+    const previousPriority = getCurrentUpdatePriority();
+    try {
+      // DiscreteEventPriority是SyncLane
+      setCurrentUpdatePriority(DiscreteEventPriority);
+      if (fn) {
+        return fn();
+      } else {
+        return undefined;
+      }
+    } finally {
+      setCurrentUpdatePriority(previousPriority);
+    }
+  }
+  ```
+
+- 触发渲染也可能由事件引起，我们在研究 react 的事件系统时提到过，react 将事件分成了不同的优先级，不同优先级的事件监听器不同。两类高优先级的事件触发后会设置当前优先级。
+
+  ```javascript
+  export opaque type EventPriority = Lane;
+
+  export const DiscreteEventPriority: EventPriority = SyncLane;
+  export const ContinuousEventPriority: EventPriority = InputContinuousLane;
+  export const DefaultEventPriority: EventPriority = DefaultLane;
+  export const IdleEventPriority: EventPriority = IdleLane;
+  ```
+
+  input，click 等事件优先级很高，scroll 等事件优先级次之，其他优先级较低。
+
+  ```javascript
+  export function getEventPriority(domEventName: DOMEventName): EventPriority {
+    switch (domEventName) {
+      // Used by SimpleEventPlugin:
+      case "input":
+      case "click":
+        return DiscreteEventPriority;
+      case "mousemove":
+      case "scroll":
+        return ContinuousEventPriority;
+      default:
+        return DefaultEventPriority;
+    }
+  }
+  ```
+
+  在事件触发后，调用绑定在 root container 上的事件监听器也可能会设置优先级。
+
+  ```javascript
+  function dispatchDiscreteEvent(
+    domEventName: DOMEventName,
+    eventSystemFlags: EventSystemFlags,
+    container: EventTarget,
+    nativeEvent: AnyNativeEvent
+  ) {
+    const previousPriority = getCurrentUpdatePriority();
+    const prevTransition = ReactCurrentBatchConfig.transition;
+    ReactCurrentBatchConfig.transition = null;
+    try {
+      setCurrentUpdatePriority(DiscreteEventPriority);
+      dispatchEvent(domEventName, eventSystemFlags, container, nativeEvent);
+    } finally {
+      setCurrentUpdatePriority(previousPriority);
+      ReactCurrentBatchConfig.transition = prevTransition;
+    }
+  }
+
+  function dispatchContinuousEvent(
+    domEventName: DOMEventName,
+    eventSystemFlags: EventSystemFlags,
+    container: EventTarget,
+    nativeEvent: AnyNativeEvent
+  ) {
+    const previousPriority = getCurrentUpdatePriority();
+    const prevTransition = ReactCurrentBatchConfig.transition;
+    ReactCurrentBatchConfig.transition = null;
+    try {
+      setCurrentUpdatePriority(ContinuousEventPriority);
+      dispatchEvent(domEventName, eventSystemFlags, container, nativeEvent);
+    } finally {
+      setCurrentUpdatePriority(previousPriority);
+      ReactCurrentBatchConfig.transition = prevTransition;
+    }
+  }
+  ```
+
+- 起源于 react 外部，例如 host 事件，除了上面的两类高优先级事件，或者在高于root container的层级触发的事件。
+
+  ```javascript
+  export function getCurrentEventPriority(): EventPriority {
+    const currentEvent = window.event;
+    if (currentEvent === undefined) {
+      return DefaultEventPriority;
+    }
+    return getEventPriority(currentEvent.type);
+  }
+  ```
+
+**标记lane**
+
+创建 update lane 后，会合并到 fiber.lanes 上，并且会向上遍历祖先合并到 childLanes。
 
 ```javascript
 function markUpdateLaneFromFiberToRoot(
   sourceFiber: Fiber,
   update: ConcurrentUpdate | null,
-  lane: Lane,
+  lane: Lane
 ): void {
   // Update the source fiber's lanes
   sourceFiber.lanes = mergeLanes(sourceFiber.lanes, lane);
@@ -163,40 +299,34 @@ function markUpdateLaneFromFiberToRoot(
 }
 ```
 
+在安排 fiber 更新任务时也会将 lane 合并到 FiberRoot.pendingLanes 上。
+
 ```javascript
+export function scheduleUpdateOnFiber(
+  root: FiberRoot,
+  fiber: Fiber,
+  lane: Lane,
+  eventTime: number
+) {
+  // Mark that the root has a pending update.
+  markRootUpdated(root, lane, eventTime);
+}
+
 export function markRootUpdated(
   root: FiberRoot,
   updateLane: Lane,
-  eventTime: number,
+  eventTime: number
 ) {
   root.pendingLanes |= updateLane;
-
-  // If there are any suspended transitions, it's possible this new update
-  // could unblock them. Clear the suspended lanes so that we can try rendering
-  // them again.
-  //
-  // TODO: We really only need to unsuspend only lanes that are in the
-  // `subtreeLanes` of the updated fiber, or the update lanes of the return
-  // path. This would exclude suspended updates in an unrelated sibling tree,
-  // since there's no way for this update to unblock it.
-  //
-  // We don't do this if the incoming update is idle, because we never process
-  // idle updates until after all the regular updates have finished; there's no
-  // way it could unblock a transition.
-  if (updateLane !== IdleLane) {
-    root.suspendedLanes = NoLanes;
-    root.pingedLanes = NoLanes;
-  }
-
-  const eventTimes = root.eventTimes;
-  const index = laneToIndex(updateLane);
-  // We can always overwrite an existing timestamp because we prefer the most
-  // recent event, and we assume time is monotonically increasing.
-  eventTimes[index] = eventTime;
 }
 ```
 
-在给root安排一个task时，会获取下一个nextLanes。
+**安排root任务时使用lane**
+
+在给 root 安排一个 task 时，会获取 nextLanes，并且根据优先级绑定不同的回调函数。
+
+- 如果包含同步优先级，绑定 performSyncWorkOnRoot
+- 否则绑定 performConcurrentWorkOnRoot
 
 ```javascript
 // Use this function to schedule a task for a root. There's only one task per
@@ -208,25 +338,53 @@ function ensureRootIsScheduled(root: FiberRoot, currentTime: number) {
   // Determine the next lanes to work on, and their priority.
   const nextLanes = getNextLanes(
     root,
-    root === workInProgressRoot ? workInProgressRootRenderLanes : NoLanes,
+    root === workInProgressRoot ? workInProgressRootRenderLanes : NoLanes
   );
+
+  // We use the highest priority lane to represent the priority of the callback.
+  const newCallbackPriority = getHighestPriorityLane(nextLanes);
+
+  if (includesSyncLane(newCallbackPriority)) {
+    // 本质就是将回调函数放进一个队列中
+    scheduleSyncCallback(performSyncWorkOnRoot.bind(null, root));
+    if (supportsMicrotasks) {
+      // 如果支持微任务，可以flushSyncCallbacks作为微任务
+      // flushSyncCallbacks就是执行队列中的回调
+      // Flush the queue in a microtask.
+      scheduleMicrotask(() => {
+        flushSyncCallbacks();
+      });
+    } else {
+      // 如果不支持，那么调用scheduler的api安排一个超高优先级的宏任务
+      // Flush the queue in an Immediate task.
+      scheduleCallback(ImmediateSchedulerPriority, flushSyncCallbacks);
+    }
+  } else {
+    let schedulerPriorityLevel;
+    // 这里会根据nextLanes的优先级获取scheduler对应的优先级，然后安排任务
+    scheduleCallback(
+      schedulerPriorityLevel,
+      performConcurrentWorkOnRoot.bind(null, root)
+    );
+  }
 }
 ```
 
-在真正处理root上的task时也一样获取nextLanes，甚至会判断是否应该切片。
+**执行root任务时使用lane**
+
+在真正处理 root 上的 task 时也一样获取 nextLanes，performConcurrent会使用lane判断是否应该切片，**目前只有transition和Suspense会切片**。
+
+<a href="https://github.com/facebook/react/issues/24392#issuecomment-1237604765" target="_blank">transiton和Suspense切片</a>
 
 ```javascript
 // This is the entry point for every concurrent task, i.e. anything that
 // goes through Scheduler.
-function performConcurrentWorkOnRoot(
-  root: FiberRoot,
-  didTimeout: boolean,
-) {
+function performConcurrentWorkOnRoot(root: FiberRoot, didTimeout: boolean) {
   // Determine the next lanes to work on, using the fields stored
   // on the root.
   let lanes = getNextLanes(
     root,
-    root === workInProgressRoot ? workInProgressRootRenderLanes : NoLanes,
+    root === workInProgressRoot ? workInProgressRootRenderLanes : NoLanes
   );
   if (lanes === NoLanes) {
     // Defensive coding. This is never expected to happen.
@@ -246,47 +404,36 @@ function performConcurrentWorkOnRoot(
 }
 ```
 
-```javascript
-// This is the entry point for synchronous tasks that don't go
-// through Scheduler
-function performSyncWorkOnRoot(root: FiberRoot) {
-  let lanes = getNextLanes(root, NoLanes);
-  if (!includesSyncLane(lanes)) {
-    // There's no remaining sync work left.
-    ensureRootIsScheduled(root, now());
-    return null;
-  }
-}
-```
+**渲染阶段使用lane**
 
-### 在渲染阶段使用lane的典型用例
+渲染阶段主要是beginWork阶段使用lanes。
 
-- 检查子树是否有待办任务，如果没有，可以返回null跳过
+- 检查子树是否有待办任务，如果没有，可以返回 null 跳过
 
 ```javascript
 function bailoutOnAlreadyFinishedWork(current, workInProgress, renderLanes) {
-    if (current !== null) {
-      // Reuse previous dependencies
-      workInProgress.dependencies = current.dependencies;
-    }
-
-    markSkippedUpdateLanes(workInProgress.lanes); 
-  
-    // Check if the children have any pending work.
-    if (!includesSomeLane(renderLanes, workInProgress.childLanes)) {
-      // The children don't have any work either. We can skip them.
-        return null;
-    } 
-  
-    // This fiber doesn't have work, but its subtree does. Clone the child
-    // fibers and continue.
-
-    cloneChildFibers(current, workInProgress);
-    return workInProgress.child;
+  if (current !== null) {
+    // Reuse previous dependencies
+    workInProgress.dependencies = current.dependencies;
   }
+
+  markSkippedUpdateLanes(workInProgress.lanes);
+
+  // Check if the children have any pending work.
+  if (!includesSomeLane(renderLanes, workInProgress.childLanes)) {
+    // The children don't have any work either. We can skip them.
+    return null;
+  }
+
+  // This fiber doesn't have work, but its subtree does. Clone the child
+  // fibers and continue.
+
+  cloneChildFibers(current, workInProgress);
+  return workInProgress.child;
+}
 ```
 
-- 更新状态时跳过优先级不够高的更新（包括useState，useReducer，类组件状态更新）
+- 更新状态时跳过优先级不够高的更新（包括 useState，useReducer，类组件状态更新）
 
 ```javascript
 function updateReducer(reducer, initialArg, init) {
@@ -301,90 +448,4 @@ function updateReducer(reducer, initialArg, init) {
 }
 ```
 
-
-
-**触发事件后的lane**
-
-在触发事件后会设置当前优先级，react将事件也分成了不同的优先级。
-
-```javascript
-export opaque type EventPriority = Lane;
-
-export const DiscreteEventPriority: EventPriority = SyncLane;
-export const ContinuousEventPriority: EventPriority = InputContinuousLane;
-export const DefaultEventPriority: EventPriority = DefaultLane;
-export const IdleEventPriority: EventPriority = IdleLane;
-```
-
-例如click，input这样的事件优先级很高，下面举了一些例子。
-
-```javascript
-export function getEventPriority(domEventName: DOMEventName): EventPriority {
-  switch (domEventName) {
-    // Used by SimpleEventPlugin:
-    case 'input':
-    case 'click':
-      return DiscreteEventPriority;
-    case 'mousemove':
-    case 'scroll':
-      return ContinuousEventPriority;
-    default:
-      return DefaultEventPriority;
-  }
-}
-```
-
-在给root container绑定事件监听器时，会根据事件的优先级绑定不同的监听器。
-
-```javascript
-export function createEventListenerWrapperWithPriority(
-  targetContainer: EventTarget,
-  domEventName: DOMEventName,
-  eventSystemFlags: EventSystemFlags,
-): Function {
-  const eventPriority = getEventPriority(domEventName);
-  let listenerWrapper;
-  switch (eventPriority) {
-    case DiscreteEventPriority:
-      listenerWrapper = dispatchDiscreteEvent;
-      break;
-    case ContinuousEventPriority:
-      listenerWrapper = dispatchContinuousEvent;
-      break;
-    case DefaultEventPriority:
-    default:
-      listenerWrapper = dispatchEvent;
-      break;
-  }
-  return listenerWrapper.bind(
-    null,
-    domEventName,
-    eventSystemFlags,
-    targetContainer,
-  );
-}
-```
-
-在触发事件后调用监听器时也会设置当前的优先级，以dispatchDiscreteEvent为例。
-
-```javascript
-function dispatchDiscreteEvent(
-  domEventName: DOMEventName,
-  eventSystemFlags: EventSystemFlags,
-  container: EventTarget,
-  nativeEvent: AnyNativeEvent,
-) {
-  const previousPriority = getCurrentUpdatePriority();
-  const prevTransition = ReactCurrentBatchConfig.transition;
-  ReactCurrentBatchConfig.transition = null;
-  try {
-    // 设置当前优先级
-    setCurrentUpdatePriority(DiscreteEventPriority);
-    dispatchEvent(domEventName, eventSystemFlags, container, nativeEvent);
-  } finally {
-    setCurrentUpdatePriority(previousPriority);
-    ReactCurrentBatchConfig.transition = prevTransition;
-  }
-}
-```
 
