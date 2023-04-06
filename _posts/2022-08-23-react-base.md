@@ -111,7 +111,9 @@ function App() {
 }
 ```
 
-新的 JSX 可以不用引入 react package，会转换为下面的结果：
+<figure>
+  <im
+</figure>
 
 ```jsx
 function App() {
