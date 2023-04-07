@@ -178,3 +178,85 @@ user继承了User函数的原型，所以可以找到sayHello属性进行调用�
 User 函数本身也是一个对象，它的原型链是 User -> Function.prototype -> Object.prototype -> null。
 
 User函数继承了Function函数的原型，可以User函数可以调用bind，apply等函数。
+
+### async & await
+
+async函数返回一个promise，promise最终的状态必然是以下两种情况之一：
+
+- 由async函数的返回值fullfill
+- async抛出异常reject，抛出异常的原因可能也有两种：
+  - await等待的promise被拒绝
+  - 函数本身的代码逻辑抛出异常
+
+下面来看一个简单的例子。
+
+```javascript
+function resolveAfter2Seconds() {
+  return new Promise((resolve) => {
+    console.log("starting slow promise");
+    setTimeout(() => {
+      resolve("slow result");
+      console.log("slow promise is done");
+    }, 2000);
+  });
+}
+
+function resolveAfter1Second() {
+  return new Promise((_, reject) => {
+    console.log("starting fast promise");
+    setTimeout(() => {
+      reject("fast error");
+      console.log("fast promise is rejected");
+    }, 1000);
+  });
+}
+
+async function asyncCall() {
+  console.log("async function start");
+
+  try {
+    const slow = await resolveAfter2Seconds();
+    console.log(slow);
+  } catch (e) {
+    console.log(e);
+  }
+
+  try {
+    await resolveAfter1Second();
+  } catch (e) {
+    console.log(e);
+  }
+}
+
+const promise = asyncCall();
+
+console.log("after call async function");
+```
+
+console中依次输出：
+
+```
+// 调用async函数
+async function start
+// slow promise开始
+starting slow promise
+// 由于等待的slow promise没有敲定，所以要暂停async函数让出控制权
+after call async function
+// 2秒后slow promise敲定
+slow promise is done
+// 变量slow被赋值为slow promise敲定的值
+slow result
+// fast promise开始
+starting fast promise
+// 等待的fase promise没有敲定，也要暂停让出控制权
+// 1秒后fast promise被拒绝
+fast promise is rejected
+// 被拒绝后把拒绝原因作为错误抛出
+// 捕获到这个错误
+fast error
+```
+
+到这里async函数结束，返回了undefined，所以promise的状态变为fullfilled，promise的结果为async函数的返回值即undefined。
+
+如果在async函数中没有捕获处理错误，那么promise的状态会变为rejected，结果为reject的原因。
+
