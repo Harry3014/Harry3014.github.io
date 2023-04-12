@@ -389,6 +389,17 @@ fast error
 
 如果在 async 函数中没有捕获处理错误，那么 promise 的状态会变为 rejected，结果为 reject 的原因。
 
+### localStorage&sessionStorage
+
+它们用于同一个源下的本地存储，并且提供相同的方法。
+
+- setItem(string, string)，如果提供非string，会转成string
+- getItem
+- removeItem
+- clear
+
+localStorage可以长期保存，sessionStorage仅仅在会话期间保存，sessionStorage同一个URL打开不同标签也会创建各自的sessionStorage。
+
 ## 常见问题
 
 ### 事件循环
@@ -399,7 +410,7 @@ fast error
 
 例如script脚本，事件分发，回调，定时器，messageChannel发送消息等等都属于任务。
 
-那么事件循环模型是如何运作的呢？它就相当于是一个持续的循环结构。
+那么事件循环模型是如何运作的呢？它就是一个持续运行的循环结构。
 
 ```javascript
 while(true) {
@@ -426,3 +437,323 @@ while(true) {
 }
 ```
 
+### 浏览器渲染页面
+
+DNS查询得到IP地址
+
+三次握手建立TCP连接
+
+- 浏览器发送SYN，假设序列号是x
+- 服务器收到请求，发送SYN，序列号是y，还要发送ACK：x+1
+- 浏览器收到ACK，发送ACK：y+1。需要这一次握手的原因：浏览器发送的建立请求因为网络延迟很久才到服务器，服务器无法知晓这个请求是否过期，如果这样就建立了连接，那么是资源的浪费，因为这个请求可能已经过期了。而浏览器是知道这个请求是否已经过期，假设已经过期，那么就不会回复ACK建立连接。
+
+如果使用https协议，还会进行TLS协商以建立安全的连接
+
+发起HTTP请求，通常是获取HTML文件
+
+如果能够成功后去，浏览器会解析HTML
+
+- 构建DOM树（文档对象模型），在解析HTML标签的过程中，没有async或defer的script会阻塞解析HTML，但是一些高优先级的资源会在解析HTML前就发起请求获取，例如css，js文件等，这样能减少阻塞。
+
+  顺带提一下async和defer属性，async会并行请求，defer会延迟到解析完成后请求，在DOMContentLoaded事件触发前。
+
+  load事件是在所有资源都加载完成后才会触发，包括图片等。
+
+- 构建CSSOM，构建CSSOM的速度是非常快的
+
+- 在解析HTML的过程中还会执行script
+
+解析完成后就可以进行渲染
+
+- 将DOM和CSSOM结合成Render树，根据CSS级联规则确定节点的计算样式
+- 确定节点的尺寸和位置，第一次称为布局（layout），再次计算称为回流（reflow）
+- 绘制（paint）节点到屏幕，例如文本，颜色，边框等等，再次绘制称为重绘（repaint）
+- 如果有相互重叠时，还需要合成（compositing），确保以正确的顺序显示
+
+渲染完成后不代表一定能立马进行交互，可能还在执行脚本，此时无法进行交互
+
+## HTTP
+
+首先回顾一些基本的概念。
+
+URL的组成部分
+
+<figure>
+  <img src="/assets/images/URI_syntax_diagram.svg.png" />
+</figure>
+
+协议://主机:端口/路径?查询#片段
+
+data URL
+
+```
+data:[mediatype][;base64],data
+```
+
+MIME类型 type/subtype
+
+描述文档文件、字节流的格式和性质，常见的text/plain，application/octet-stream
+
+### 跨源资源共享cors
+
+同源：协议，主机，端口都相同。
+
+**预检请求**
+
+某些类型的跨域请求在发送前需要先发送一个预检请求，服务器处理预检请求告知浏览器是否允许发送真正的跨域请求。
+
+这些需要发送预检请求的跨域请求是：
+
+- 方法限制：不是get，head，post
+- 头部限制：包含了一些对于cors来说不安全的头部
+- Content-Type限制
+- 还有一些其他的限制，这里不一一列举了
+
+**请求头部字段**
+
+- Origin
+
+  请求源
+
+- Access-Control-Request-Method
+
+  告知服务器真正跨域请求使用的方法，用于预检请求
+
+- Access-Control-Request-Headers
+
+  告知服务器真正跨域请求使用的头部，逗号隔开，用于预检请求
+
+**响应头部字段**
+
+- Access-Control-Allow-Origin
+
+  指定该资源允许被哪些源跨域使用
+
+  - \* 允许任意来源
+  - 指定一个来源，如果指定了来源，必须在Vary头部中添加Origin头部用于表明不同Origin会有不同的此头部字段值
+
+- Access-Control-Allow-Methods
+
+  告知浏览器跨域请求允许使用的方法，用于响应预检请求，逗号隔开
+
+- Access-Control-Allow-Headers
+
+  告知浏览器跨域请求允许使用的头部，用于响应预检请求，逗号隔开
+
+- Access-Control-Max-Age
+
+  指定预检请求的响应能够缓存多久，单位秒
+
+除了以上常用的响应头部字段，还有一些其他的用于cors响应的头部字段，但是不常用。
+
+### http缓存
+
+http旨在尽可能多缓存响应，只要满足http规定的缓存条件就能缓存响应，这些条件参考<a href="https://www.rfc-editor.org/rfc/rfc9111.html#name-storing-responses-in-caches" target="_blank">RFC9111</a>。
+
+目前使用比较广泛的缓存控制策略是通过Cache-Control头，但是不使用某些特定头部也是可以被缓存的，只要响应满足上面说的RFC9111规定的条件。
+
+**重用缓存**
+
+在发起请求时重用缓存同样也需要满足一些条件，这些条件参考<a href="https://www.rfc-editor.org/rfc/rfc9111.html#name-constructing-responses-from" target="_blank">RFC9111</a>。
+
+我们比较熟知的可以重用缓存的情况可能是：
+
+- URI要匹配
+
+- 缓存仍然是新鲜的
+- 缓存过期，但是经过重新与服务器验证可以使用过期的缓存
+- 如果响应含有Vary头，那么Vary指定的头匹配才能使用缓存
+- 如果响应含有no-cache指令，必须经过验证才能使用缓存
+
+其实还存在其他可以重用缓存的情况，例如客户端在Cache-Control中使用max-stale指令，表明可以接受过期时间不超过此设定的缓存。
+
+**检查新鲜度**
+
+检查缓存是否新鲜的方式是response_is_fresh = (freshness_lifetime > current_age)。
+
+计算freshness_lifetime的方式按照下面的优先级：
+
+- 如果是共享缓存：Cache-Control的s-maxage指令
+- Cache-Control的max-age指令
+- Expires头 减掉 Date头
+- 以上都没有就属于启发式缓存，使用Date 减掉 Last-Modified，然后取10%
+
+计算current_age稍微有些复杂，可以通俗的理解成缓存的当前寿命。
+
+**重新验证**
+
+虽然缓存中可能存在URI匹配的缓存，但是由于各种原因无法重用缓存，那么可以发起重新验证请求。
+
+如果响应中包含ETag头，在重新验证时使用If-None-Match，如果服务器检查没有修改，可以返回304Not Modified。
+
+如果响应中包含Last-Modified头，在重新验证时使用If-Modified-Since，没有修改返回304。
+
+**Cache-Control常见指令**
+
+可缓存性：public：共享缓存允许被任何对象缓存，private：只允许单个用户缓存，no-cache：仍然可以缓存，只是重用缓存前需要验证，no-store：不缓存
+
+到期：s-maxage：仅仅能指定共享缓存有效期，max-age：缓存有效期，max-stale：客户端愿意使用过期缓存，最大期限
+
+**缓存模式**
+
+最适合缓存的资源是静态资源，如果资源经常变动，建议在资源改动后修改URL，例如添加hash到文件名，或者添加版本号到查询。
+
+### http cookie
+
+可以在响应中使用Set-Cookie头设置cookie，再次向同一服务器发送请求时会附带cookie信息在Cookie头中。
+
+Set-Cookie头包含一些指令，指令之间以分号隔开，例如：
+
+- cookie-name=cookie-value
+
+- 失效时间：expires，max-age
+- domain，path
+- 设置secure仅仅在https请求发送，设置httponly后无法通过document.cookie访问
+- samesite：设置为strict仅仅在同一站点请求发送cookie
+
+可以通过document.cookie读取和写入cookie。
+
+读取document.cookie的值得到cookie1=value1;cookie2=values;...
+
+可以通过设置document.cookie=encodeURIComponent(name) + '=' + encodeURIComponent(value)写入cookie，最好调用encodeURIComponent保持有效格式，如果需要设置指令，以分号隔开。
+
+## CSS基础概念
+
+### 盒子模型
+
+浏览器渲染的每个元素都可以看成是一个盒子结构，完整的盒子模型从内到外由四部分组成：
+
+- content box：用于显示内容
+- padding box：内容外部的空白区域，内边距的值不能为负数
+- border box：边框
+- margin box：盒子和其他元素之间的空白区域
+
+盒子有一个外部显示类型和内部显示类型，可以由display属性指定为块级或内联，内联盒子只使用了盒子模型的部分内容。
+
+默认情况下，width和height属性是作用于content box上的，如果设置了`box-sizing: border-box`（它的默认值是contetn-box），那么padding和border都算作在宽度和高度内。
+
+### 上下外边距折叠
+
+两个盒子的上下外边距相接，那么它们的外边距将会合并成较大的那个，边距合并也是有条件的。
+
+- 设定了float或者position: absolute的不会外边距合并
+- 只对块级元素有效，因为margin对内联元素不起作用
+- 两个相邻的同级元素
+- 父元素与子元素没有内容
+
+这里只是列出大的条件，实际还有很多细节限制条件
+
+### 内联盒子
+
+内联盒子也可以设置高度，宽度，外边距，边框，外边距，但是高度和宽度不起作用，其他三个属性会生效，但是不会影响与其他元素的关系。
+
+### 正常布局流
+
+块级元素宽度与父元素一致，每个块级元素都会另起一行。
+
+内联元素在父元素还有空间的情况下，都会在同一行显示，如果空间不够会换行（如果单个单词在默认设定下无法换行会溢出）。
+
+正常布局流还会出现外边距合并。
+
+### 弹性盒子
+
+弹性盒子是按照行或列布局的一维布局方式，元素即可以膨胀填充额外空间，也可以收缩适应更小的空间。
+
+弹性盒子沿着两个轴进行布局。
+
+<figure>
+  <img src="/assets/images/flex_terms.png">
+</figure>
+
+
+我们首先需要了解下面这几个术语。
+
+- flex container：设置了`display: flex | inline-flex`的父元素
+
+- flex item：flex container 的子元素
+
+- 主轴 main axis
+
+- 主轴开始/结束
+
+- main size：flex item 在主轴方向上的大小
+
+- 交叉轴 cross axis
+
+- 交叉轴开始/结束
+
+- cross size：flex item 在交叉轴上的大小
+
+下面介绍在弹性盒子布局中flex container可设置的属性
+
+**主轴方向决定列还是行**
+
+`flex-direction: row | row-reverse | column | column-reverse`，row是默认值
+
+_注意：`flex-direction: row`不一定是从左到右，要根据文字排列方向来决定_
+
+**溢出后使用换行**
+
+默认情况下，flex item会自适应布局在一行中，这可能造成溢出，可以使用flex-wrap属性使其换行。
+
+`flex-wrap: nowrap | wrap | wrap-reverse`，nowrap是默认值
+
+`no-wrap`表示 flex item 都排列在一行中，可能会超出 flex container。
+
+`wrap-reverse`指交叉轴方向变化。
+
+`flex-flow`是`flex-direction`和`flex-wrap`的缩写。
+
+**主轴方向对齐**
+
+`justify-content`定义了主轴方向上各个 flex item 之间的间隔。
+
+<figure>
+  <img src="/assets/images/justify-content.svg">
+</figure>
+
+
+设置 flex item 之间的间隔也可以使用`gap | row-gap | column-gap`，`gap`是`row-gap`和`column-gap`的缩写。
+
+<figure>
+  <img src="/assets/images/gap-1.svg">
+</figure>
+
+**交叉轴方向对齐**
+
+`align-items`定义了交叉轴方向上的对齐方式，默认值是 stretch。
+
+<figure>
+  <img src="/assets/images/align-items.svg">
+</figure>
+
+
+`align-content`定义了多行 flex item 在交叉轴方向上的对齐，只对设置了`flex-wrap: wrap | wrap-reverse`的元素有效。
+
+<figure>
+  <img src="/assets/images/align-content.svg">
+</figure>
+
+下面介绍flex item可设置的属性。
+
+**flex item 的动态尺寸**
+
+`flex-grow`设置一个非负数的无单位的值，表示在主轴方向上的增长系数，默认值为 0。`flex-grow`是对**剩余空间**的再分配，不是整个 flex container 的空间。
+
+<figure>
+  <img src="/assets/images/flex-grow.svg">
+</figure>
+
+`flex-shrink`设置一个非负的无单位的值，表示收缩系数，一般在 flex item 溢出时使用以防止溢出，值越大收缩的越多。
+
+`flex-basis`设置了 flex item 在主轴方向上的初始大小，默认值是auto。
+
+`flex`是上面三者的缩写。
+
+**flex item 的顺序**
+
+`order`可以改变 flex item 的顺序，默认值是 0。
+
+<figure>
+  <img src="/assets/images/order.svg">
+</figure>
