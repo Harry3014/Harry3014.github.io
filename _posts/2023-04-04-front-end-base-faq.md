@@ -757,3 +757,187 @@ _注意：`flex-direction: row`不一定是从左到右，要根据文字排列�
 <figure>
   <img src="/assets/images/order.svg">
 </figure>
+### 网格
+
+网格是一种二维的布局方式，通过网格，可以把内容按照列和行的格式进行排版。可以通过设置`display: grid`来定义一个网格。
+
+**网格轨道**
+
+可以简单理解为定义行和列，给网格容器设置`grid-template-rows`定义行，设置`grid-template-columns`定义列。
+
+**网格线**
+
+定义网格轨道时创建了网格线，网格线也可以自己命名，不设置名称就是数字编号。
+
+<figure>
+  <img src="/assets/images/learn-grids-inspector.png">
+</figure>
+
+**网格间距**
+
+`row-gap`和`column-gap`可以设置行和列的间距，`gap`是两者的简写形式。
+
+**基于网格线放置网格项**
+
+```html
+<div class="grid-demo-app">
+    <div class="grid-demo-header">
+        Header
+    </div>
+    <div class="grid-demo-nav">
+        Nav
+    </div>
+    <div class="grid-demo-main">
+        Main
+    </div>
+    <div class="grid-demo-footer">
+        Footer
+    </div>
+</div>
+```
+
+```css
+.grid-demo-app {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    grid-template-rows: auto 1fr auto;
+    gap: 10px;
+}
+.grid-demo-header {
+    grid-column: 1 / 3;
+    grid-row: 1;
+    background-color: aliceblue;
+}
+.grid-demo-nav {
+    grid-column: 1;
+    grid-row: 2 / 4;
+    background-color: antiquewhite;
+}
+.grid-demo-main {
+    background-color: aqua;
+}
+.grid-demo-footer {
+    background-color: aquamarine;
+}
+```
+
+header的列从1号网格线到3号网格线，nav的行从2号网格线到4号网格线。
+
+<style>
+    .grid-demo-app {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        grid-template-rows: auto 1fr auto;
+        gap: 10px;
+    }
+    .grid-demo-header {
+        grid-column: 1 / 3;
+        grid-row: 1;
+        background-color: aliceblue;
+    }
+    .grid-demo-nav {
+        grid-column: 1;
+        grid-row: 2 / 4;
+        background-color: antiquewhite;
+    }
+    .grid-demo-main {
+        background-color: aqua;
+    }
+    .grid-demo-footer {
+        background-color: aquamarine;
+    }
+</style>
+<div class="grid-demo-app">
+    <div class="grid-demo-header">
+        Header
+    </div>
+    <div class="grid-demo-nav">
+        Nav
+    </div>
+    <div class="grid-demo-main">
+        Main
+    </div>
+    <div class="grid-demo-footer">
+        Footer
+    </div>
+</div>
+
+**基于网格区域放置网格项**
+
+`grid-area`是`grid-row-start grid-row-end grid-column-start grid-column-end`的缩写，也可以自定义命名。
+
+例如我们给上面的示例命名header，nav，main，footer。
+
+`grid-template-areas`可以按照命名来放置元素，`.`表示留空。
+
+```css
+.grid-demo-app {
+    display: grid;
+    grid-template-areas:
+        "header header"
+        "nav main"
+        "nav footer";
+    grid-template-columns: auto 1fr;
+    grid-template-rows: auto 1fr auto;
+    gap: 10px;
+}
+.grid-demo-header {
+    grid-area: header;
+    background-color: aliceblue;
+}
+.grid-demo-nav {
+    grid-area: nav;
+    background-color: antiquewhite;
+}
+.grid-demo-main {
+    grid-area: main;
+    background-color: aqua;
+}
+.grid-demo-footer {
+    grid-area: footer;
+    background-color: aquamarine;
+}
+```
+
+<style>
+    .grid-demo2-app {
+        display: grid;
+        grid-template-areas:
+            "header header"
+            "nav main"
+            "nav footer";
+        grid-template-columns: auto 1fr;
+        grid-template-rows: auto 1fr auto;
+        gap: 10px;
+    }
+    .grid-demo2-header {
+        grid-area: header;
+        background-color: aliceblue;
+    }
+    .grid-demo2-nav {
+        grid-area: nav;
+        background-color: antiquewhite;
+    }
+    .grid-demo2-main {
+        grid-area: main;
+        background-color: aqua;
+    }
+    .grid-demo2-footer {
+        grid-area: footer;
+        background-color: aquamarine;
+    }
+</style>
+<div class="grid-demo2-app">
+    <div class="grid-demo2-header">
+        Header
+    </div>
+    <div class="grid-demo2-nav">
+        Nav
+    </div>
+    <div class="grid-demo2-main">
+        Main
+    </div>
+    <div class="grid-demo2-footer">
+        Footer
+    </div>
+</div>
