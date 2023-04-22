@@ -179,6 +179,119 @@ User 函数本身也是一个对象，它的原型链是 User -> Function.protot
 
 User 函数继承了 Function 函数的原型，可以 User 函数可以调用 bind，apply 等函数。
 
+### typeof & instanceof
+
+typeof运算符返回字符串表示操作数的类型。以下情况使用typeof值得注意。
+
+```javascript
+typeof undefinedValue === 'undefined'
+typeof null === 'object'
+typeof NaN === 'number'
+typeof new String('xx') === 'object'
+typeof undeclaredVar === 'undefined' // 未声明变量不会报错，但是如果是let，const变量在暂时性死区会报错
+```
+
+instanceof运算符用于检测函数的原型是否在对象的原型链上，例如`object instanceof constructor`就是检查`constructor.prototype`在不在object的原型链上。
+
+左值可以为任何类型，但是只有对象才会检测原型链。
+
+右值只能为可调用的函数。
+
+一下情况使用instanceof值得注意。
+
+在多个窗口之间交互，不同的窗口拥有不同的内置构造函数，例如iframe中的Array构造函数与top中的不一样，所以使用instanceof并不是保险的。例如判断是否是数组应该使用：
+
+```javascript
+Array.isArray(testObj)
+Object.prototype.toString.call(testObj) === '[object Array]'
+```
+
+### this
+
+this的值是在代码运行时绑定，取决于执行上下文。
+
+**全局上下文**
+
+全局执行环境下this指向全局对象，例如浏览器指向window。
+
+**非箭头函数上下文**
+
+函数中的this取决于如何调用它。
+
+- 在全局上下文中直接调用
+
+  ```javascript
+  function func() {
+    return this;
+  }
+  
+  func(); // 非严格模式指向全局对象，严格模式下为undefined
+  ```
+
+- 作为对象方法调用，this指向调用它的对象
+
+  ```javascript
+  let obj = {
+    name: "test",
+    print: function() {
+      return console.log(this.name);
+    }
+  };
+  
+  obj.print();
+  ```
+
+- 作为构造函数，this指向一个新的对象
+
+  ```javascript
+  function Person(firstName, lastName) {
+    this.firstName = firstName;
+    this.lastName = lastName;
+  }
+  ```
+
+  这里顺便说一下使用new调用构造函数生成一个对象的过程
+
+  - 创建一个空的简单对象`{}`
+  - 对象的`_proto___`指向构造函数的原型对象
+  - 将新创建的对象作为this
+  - 执行构造函数内容
+  - 如果没有返回值，默认返回这个对象
+
+**箭头函数上下文**
+
+箭头函数没有自己的this，它继承于作用域链上的上一层中this。
+
+顺便说一下，箭头函数无法作为构造函数，
+
+**类上下文**
+
+类上下文中与函数类似。
+
+**apply&call指定this调用**
+
+函数的apply和call方法可以指定this进行调用，如果指定的this参数不是对象会尝试转换为对象，如果是null或undefined，在非严格模式下是全局对象。
+
+**bind**
+
+调用bind返回一个新的方法，这个方法中的this被永久设置为传入的参数。
+
+```javascript
+function f(){
+  return this.a;
+}
+
+var g = f.bind({a:"azerty"});
+console.log(g()); // azerty
+
+var h = g.bind({a:'yoo'}); // bind 只生效一次！
+console.log(h()); // azerty
+```
+
+**事件处理函数**
+
+this指向事件绑定的元素，即`this === event.currentTarget`，`event.target`指向触发事件的元素。
+
 ### promise
 
 ```javascript
@@ -472,6 +585,15 @@ DNS查询得到IP地址
 
 渲染完成后不代表一定能立马进行交互，可能还在执行脚本，此时无法进行交互
 
+### 浮点数运算精度缺失
+
+原因：十进制的二进制表示形式可能不精确，例如0.1，只有1除以2<sup>n</sup>的小数才能被精确表示。
+
+解决方法：
+
+- 绝对值与`Number.EPSILON`进行比较
+- 使用一些库，例如decimal.js
+
 ## HTTP
 
 首先回顾一些基本的概念。
@@ -617,6 +739,32 @@ Set-Cookie头包含一些指令，指令之间以分号隔开，例如：
 
 可以通过设置document.cookie=encodeURIComponent(name) + '=' + encodeURIComponent(value)写入cookie，最好调用encodeURIComponent保持有效格式，如果需要设置指令，以分号隔开。
 
+### http常见状态码
+
+- 101 switching protocol：服务器根据客户端提起的协议升级请求，正在升级协议，例如创建websocket时会使用到
+
+  ```http
+  HTTP/1.1 101 Switching Protocols
+  Upgrade: websocket
+  Connection: Upgrade
+  ```
+
+- 200 ok
+
+- 304 not modified，服务器告知缓存没有被修改，因此客户端仍然可以使用此缓存
+
+- 400 bad request 客户端错误的请求
+
+- 403 forbidden 客户端没有访问内容的权限
+
+- 404 not found 服务器找不到相关内容
+
+- 405 method not allow 服务器禁止使用该请求的方法
+
+- 500 internal server error服务器内部错误
+
+- 504 Gateway timeout 扮演网关或者代理的服务器无法在规定的时间内获得想要的响应
+
 ## CSS基础概念
 
 ### 盒子模型
@@ -664,8 +812,6 @@ Set-Cookie头包含一些指令，指令之间以分号隔开，例如：
 <figure>
   <img src="/assets/images/flex_terms.png">
 </figure>
-
-
 我们首先需要了解下面这几个术语。
 
 - flex container：设置了`display: flex | inline-flex`的父元素
@@ -711,8 +857,6 @@ _注意：`flex-direction: row`不一定是从左到右，要根据文字排列�
 <figure>
   <img src="/assets/images/justify-content.svg">
 </figure>
-
-
 设置 flex item 之间的间隔也可以使用`gap | row-gap | column-gap`，`gap`是`row-gap`和`column-gap`的缩写。
 
 <figure>
@@ -726,8 +870,6 @@ _注意：`flex-direction: row`不一定是从左到右，要根据文字排列�
 <figure>
   <img src="/assets/images/align-items.svg">
 </figure>
-
-
 `align-content`定义了多行 flex item 在交叉轴方向上的对齐，只对设置了`flex-wrap: wrap | wrap-reverse`的元素有效。
 
 <figure>
@@ -941,3 +1083,148 @@ header的列从1号网格线到3号网格线，nav的行从2号网格线到4号�
         Footer
     </div>
 </div>
+## 手写代码
+
+### 防抖&节流
+
+防抖debounce和节流throttle都是控制函数执行频率的优化方式。
+
+**防抖**
+
+防抖是将连续多次的调用合并为一次调用，可以将合并后的唯一一次调用放在开始，也可以放在结尾，这两者都可以实现。
+
+<figure>
+  <img src="/assets/images/debounce.webp">
+</figure>
+
+一个极简版本的实现如下，此次执行函数是在连续调用请求的最后。
+
+```javascript
+function debounce(func, wait) {
+  let timer = null;
+  return function (...theArgs) {
+    const context = this;
+
+    if (timer !== null) {
+      clearTimeout(timer);
+    }
+
+    timer = setTimeout(() => {
+      func.apply(context, theArgs);
+      timer = null; // 防止内存泄漏
+    }, wait);
+  };
+}
+```
+
+如果要支持在连续调用请求的一开始执行，那么实现如下。
+
+```javascript
+function debounce(func, wait, immediate = false) {
+  let timer = null;
+
+  return function (...theArgs) {
+    const context = this;
+
+    if (timer === null) {
+      if (immediate) {
+        func.apply(context, theArgs);
+      }
+    } else {
+      clearTimeout(timer);
+    }
+
+    timer = setTimeout(() => {
+      if (!immediate) {
+        func.apply(context, theArgs);
+      }
+      timer = null;
+    }, wait);
+  };
+}
+```
+
+我们可以看到，在wait时间内如果再次调用函数是会被忽略的，核心在于重值计时器。
+
+下面是一个实际运用的例子，点击按钮提交表单，我们期望的是：无论连续点击多少次按钮，只会提交一次。
+
+```javascript
+btn.addEventListener("click", debounce(onSubmit, 1000, true));
+```
+
+**节流**
+
+节流与防抖控制频率的方式不同，节流是指在一段时间内最多只执行一次该函数，不管调用请求是否是连续的。
+
+```javascript
+function throttle(func, wait, immediate = false) {
+  let timer = null;
+
+  return function (...theArgs) {
+    if (timer !== null) {
+      return;
+    }
+
+    const context = this;
+
+    if (immediate) {
+      func.apply(context, theArgs);
+    }
+
+    timer = setTimeout(() => {
+      if (!immediate) {
+        func.apply(context, theArgs);
+      }
+      timer = null;
+    }, wait);
+  };
+}
+```
+
+下面是一个实际运用例子，scroll事件的处理无需如此频繁。
+
+```javascript
+container.addEventListener("scroll", throttle(onScroll, 1000));
+```
+
+## React相关
+
+### 函数组件与类组件的不同
+
+函数组件利用闭包的特性绑定了渲染时的props和state，react明确要求不能更改props（不可变immutable），state也不能直接更改，只能通过更新函数。
+
+然而类组件的实例是可变对象（mutable），`this.props`会随着组件的再次渲染修改。
+
+例如下面这个例子，如果在三秒内以不同的text重新渲染了Print组件，函数组件仍然会显示之前传入的text，而类组件会显示最新的text。
+
+```jsx
+function Print({ text }) {
+  const handleClick = () => {
+    setTimeout(() => {
+      alert(text);
+    }, 3000);
+  };
+  
+  return <button onClick={handleClick}>print</button>
+}
+
+class Print extends React.Component {
+  handleClick = () => {
+    setTimeout(() => {
+      alert(this.props.text);
+    }, 3000);
+  };
+  
+  render() {
+    return <button onClick={this.handleClick}>print</button>
+  }
+}
+```
+
+如果真的在函数组件中需要使用可变对象，可使用ref，但是不要在渲染过程中使用ref（保证组件纯净）。
+
+### 受控组件
+
+表单元素的值使用state来控制。
+
+好处：表单元素的值可以由代码来控制，例如重置，或者其他内容的值跟随它一起变化。
