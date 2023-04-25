@@ -181,42 +181,42 @@ User 函数继承了 Function 函数的原型，可以 User 函数可以调用 b
 
 ### typeof & instanceof
 
-typeof运算符返回字符串表示操作数的类型。以下情况使用typeof值得注意。
+typeof 运算符返回字符串表示操作数的类型。以下情况使用 typeof 值得注意。
 
 ```javascript
-typeof undefinedValue === 'undefined'
-typeof null === 'object'
-typeof NaN === 'number'
-typeof new String('xx') === 'object'
-typeof undeclaredVar === 'undefined' // 未声明变量不会报错，但是如果是let，const变量在暂时性死区会报错
+typeof undefinedValue === "undefined";
+typeof null === "object";
+typeof NaN === "number";
+typeof new String("xx") === "object";
+typeof undeclaredVar === "undefined"; // 未声明变量不会报错，但是如果是let，const变量在暂时性死区会报错
 ```
 
-instanceof运算符用于检测函数的原型是否在对象的原型链上，例如`object instanceof constructor`就是检查`constructor.prototype`在不在object的原型链上。
+instanceof 运算符用于检测函数的原型是否在对象的原型链上，例如`object instanceof constructor`就是检查`constructor.prototype`在不在 object 的原型链上。
 
 左值可以为任何类型，但是只有对象才会检测原型链。
 
 右值只能为可调用的函数。
 
-一下情况使用instanceof值得注意。
+一下情况使用 instanceof 值得注意。
 
-在多个窗口之间交互，不同的窗口拥有不同的内置构造函数，例如iframe中的Array构造函数与top中的不一样，所以使用instanceof并不是保险的。例如判断是否是数组应该使用：
+在多个窗口之间交互，不同的窗口拥有不同的内置构造函数，例如 iframe 中的 Array 构造函数与 top 中的不一样，所以使用 instanceof 并不是保险的。例如判断是否是数组应该使用：
 
 ```javascript
-Array.isArray(testObj)
-Object.prototype.toString.call(testObj) === '[object Array]'
+Array.isArray(testObj);
+Object.prototype.toString.call(testObj) === "[object Array]";
 ```
 
 ### this
 
-this的值是在代码运行时绑定，取决于执行上下文。
+this 的值是在代码运行时绑定，取决于执行上下文。
 
 **全局上下文**
 
-全局执行环境下this指向全局对象，例如浏览器指向window。
+全局执行环境下 this 指向全局对象，例如浏览器指向 window。
 
 **非箭头函数上下文**
 
-函数中的this取决于如何调用它。
+函数中的 this 取决于如何调用它。
 
 - 在全局上下文中直接调用
 
@@ -224,24 +224,24 @@ this的值是在代码运行时绑定，取决于执行上下文。
   function func() {
     return this;
   }
-  
+
   func(); // 非严格模式指向全局对象，严格模式下为undefined
   ```
 
-- 作为对象方法调用，this指向调用它的对象
+- 作为对象方法调用，this 指向调用它的对象
 
   ```javascript
   let obj = {
     name: "test",
-    print: function() {
+    print: function () {
       return console.log(this.name);
-    }
+    },
   };
-  
+
   obj.print();
   ```
 
-- 作为构造函数，this指向一个新的对象
+- 作为构造函数，this 指向一个新的对象
 
   ```javascript
   function Person(firstName, lastName) {
@@ -250,17 +250,17 @@ this的值是在代码运行时绑定，取决于执行上下文。
   }
   ```
 
-  这里顺便说一下使用new调用构造函数生成一个对象的过程
+  这里顺便说一下使用 new 调用构造函数生成一个对象的过程
 
   - 创建一个空的简单对象`{}`
   - 对象的`_proto___`指向构造函数的原型对象
-  - 将新创建的对象作为this
+  - 将新创建的对象作为 this
   - 执行构造函数内容
   - 如果没有返回值，默认返回这个对象
 
 **箭头函数上下文**
 
-箭头函数没有自己的this，它继承于作用域链上的上一层中this。
+箭头函数没有自己的 this，它继承于作用域链上的上一层中 this。
 
 顺便说一下，箭头函数无法作为构造函数，
 
@@ -268,29 +268,29 @@ this的值是在代码运行时绑定，取决于执行上下文。
 
 类上下文中与函数类似。
 
-**apply&call指定this调用**
+**apply&call 指定 this 调用**
 
-函数的apply和call方法可以指定this进行调用，如果指定的this参数不是对象会尝试转换为对象，如果是null或undefined，在非严格模式下是全局对象。
+函数的 apply 和 call 方法可以指定 this 进行调用，如果指定的 this 参数不是对象会尝试转换为对象，如果是 null 或 undefined，在非严格模式下是全局对象。
 
 **bind**
 
-调用bind返回一个新的方法，这个方法中的this被永久设置为传入的参数。
+调用 bind 返回一个新的方法，这个方法中的 this 被永久设置为传入的参数。
 
 ```javascript
-function f(){
+function f() {
   return this.a;
 }
 
-var g = f.bind({a:"azerty"});
+var g = f.bind({ a: "azerty" });
 console.log(g()); // azerty
 
-var h = g.bind({a:'yoo'}); // bind 只生效一次！
+var h = g.bind({ a: "yoo" }); // bind 只生效一次！
 console.log(h()); // azerty
 ```
 
 **事件处理函数**
 
-this指向事件绑定的元素，即`this === event.currentTarget`，`event.target`指向触发事件的元素。
+this 指向事件绑定的元素，即`this === event.currentTarget`，`event.target`指向触发事件的元素。
 
 ### promise
 
@@ -413,7 +413,7 @@ Promise.prototype.finally(onFinally)
     () => {}
   ); // 返回的promise最终状态为resolved，结果为undefined，因为回调函数没有返回值
   Promise.resolve(2).finally(() => {}); // 返回的promise最终状态为resolved，结果为2
-  
+
   Promise.reject(3).then(
     () => {},
     () => {}
@@ -506,12 +506,12 @@ fast error
 
 它们用于同一个源下的本地存储，并且提供相同的方法。
 
-- setItem(string, string)，如果提供非string，会转成string
+- setItem(string, string)，如果提供非 string，会转成 string
 - getItem
 - removeItem
 - clear
 
-localStorage可以长期保存，sessionStorage仅仅在会话期间保存，sessionStorage同一个URL打开不同标签也会创建各自的sessionStorage。
+localStorage 可以长期保存，sessionStorage 仅仅在会话期间保存，sessionStorage 同一个 URL 打开不同标签也会创建各自的 sessionStorage。
 
 ## 常见问题
 
@@ -521,30 +521,30 @@ localStorage可以长期保存，sessionStorage仅仅在会话期间保存，ses
 
 这些事件可以理解为任务，当事件发生时，就将任务放进相应的任务队列，不止一个任务队列，微任务队列是一个特殊的队列，不属于任务队列。
 
-例如script脚本，事件分发，回调，定时器，messageChannel发送消息等等都属于任务。
+例如 script 脚本，事件分发，回调，定时器，messageChannel 发送消息等等都属于任务。
 
 那么事件循环模型是如何运作的呢？它就是一个持续运行的循环结构。
 
 ```javascript
-while(true) {
+while (true) {
   // 从任务队列中取出一个任务执行
   queue = getNextQueue();
   task = queue.pop();
   excute(task);
-  
+
   // 执行目前微任务队列中的所有微任务，queueMicroTask，promise的状态回调
-  while(microTaskQueue.hasTasks()) {
+  while (microTaskQueue.hasTasks()) {
     doMicroTask();
   }
-  
+
   // 如果需要渲染
-  if(isRepaintTime()) {
+  if (isRepaintTime()) {
     // 先执行动画相关的任务requestAnimationFrame
     animationTasks = animationQueue.copyTasks();
     for (task in animationTasks) {
       doAnimationTask(task);
     }
-    
+
     repaint();
   }
 }
@@ -552,33 +552,33 @@ while(true) {
 
 ### 浏览器渲染页面
 
-DNS查询得到IP地址
+DNS 查询得到 IP 地址
 
-三次握手建立TCP连接
+三次握手建立 TCP 连接
 
-- 浏览器发送SYN，假设序列号是x
-- 服务器收到请求，发送SYN，序列号是y，还要发送ACK：x+1
-- 浏览器收到ACK，发送ACK：y+1。需要这一次握手的原因：浏览器发送的建立请求因为网络延迟很久才到服务器，服务器无法知晓这个请求是否过期，如果这样就建立了连接，那么是资源的浪费，因为这个请求可能已经过期了。而浏览器是知道这个请求是否已经过期，假设已经过期，那么就不会回复ACK建立连接。
+- 浏览器发送 SYN，假设序列号是 x
+- 服务器收到请求，发送 SYN，序列号是 y，还要发送 ACK：x+1
+- 浏览器收到 ACK，发送 ACK：y+1。需要这一次握手的原因：浏览器发送的建立请求因为网络延迟很久才到服务器，服务器无法知晓这个请求是否过期，如果这样就建立了连接，那么是资源的浪费，因为这个请求可能已经过期了。而浏览器是知道这个请求是否已经过期，假设已经过期，那么就不会回复 ACK 建立连接。
 
-如果使用https协议，还会进行TLS协商以建立安全的连接
+如果使用 https 协议，还会进行 TLS 协商以建立安全的连接
 
-发起HTTP请求，通常是获取HTML文件
+发起 HTTP 请求，通常是获取 HTML 文件
 
-如果能够成功后去，浏览器会解析HTML
+如果能够成功后去，浏览器会解析 HTML
 
-- 构建DOM树（文档对象模型），在解析HTML标签的过程中，没有async或defer的script会阻塞解析HTML，但是一些高优先级的资源会在解析HTML前就发起请求获取，例如css，js文件等，这样能减少阻塞。
+- 构建 DOM 树（文档对象模型），在解析 HTML 标签的过程中，没有 async 或 defer 的 script 会阻塞解析 HTML，但是一些高优先级的资源会在解析 HTML 前就发起请求获取，例如 css，js 文件等，这样能减少阻塞。
 
-  顺带提一下async和defer属性，async会并行请求，defer会延迟到解析完成后请求，在DOMContentLoaded事件触发前。
+  顺带提一下 async 和 defer 属性，async 会并行请求，defer 会延迟到解析完成后请求，在 DOMContentLoaded 事件触发前。
 
-  load事件是在所有资源都加载完成后才会触发，包括图片等。
+  load 事件是在所有资源都加载完成后才会触发，包括图片等。
 
-- 构建CSSOM，构建CSSOM的速度是非常快的
+- 构建 CSSOM，构建 CSSOM 的速度是非常快的
 
-- 在解析HTML的过程中还会执行script
+- 在解析 HTML 的过程中还会执行 script
 
 解析完成后就可以进行渲染
 
-- 将DOM和CSSOM结合成Render树，根据CSS级联规则确定节点的计算样式
+- 将 DOM 和 CSSOM 结合成 Render 树，根据 CSS 级联规则确定节点的计算样式
 - 确定节点的尺寸和位置，第一次称为布局（layout），再次计算称为回流（reflow）
 - 绘制（paint）节点到屏幕，例如文本，颜色，边框等等，再次绘制称为重绘（repaint）
 - 如果有相互重叠时，还需要合成（compositing），确保以正确的顺序显示
@@ -587,18 +587,18 @@ DNS查询得到IP地址
 
 ### 浮点数运算精度缺失
 
-原因：十进制的二进制表示形式可能不精确，例如0.1，只有1除以2<sup>n</sup>的小数才能被精确表示。
+原因：十进制的二进制表示形式可能不精确，例如 0.1，只有 1 除以 2<sup>n</sup>的小数才能被精确表示。
 
 解决方法：
 
 - 绝对值与`Number.EPSILON`进行比较
-- 使用一些库，例如decimal.js
+- 使用一些库，例如 decimal.js
 
 ## HTTP
 
 首先回顾一些基本的概念。
 
-URL的组成部分
+URL 的组成部分
 
 <figure>
   <img src="/assets/images/URI_syntax_diagram.svg.png" />
@@ -612,11 +612,11 @@ data URL
 data:[mediatype][;base64],data
 ```
 
-MIME类型 type/subtype
+MIME 类型 type/subtype
 
-描述文档文件、字节流的格式和性质，常见的text/plain，application/octet-stream
+描述文档文件、字节流的格式和性质，常见的 text/plain，application/octet-stream
 
-### 跨源资源共享cors
+### 跨源资源共享 cors
 
 同源：协议，主机，端口都相同。
 
@@ -626,9 +626,9 @@ MIME类型 type/subtype
 
 这些需要发送预检请求的跨域请求是：
 
-- 方法限制：不是get，head，post
-- 头部限制：包含了一些对于cors来说不安全的头部
-- Content-Type限制
+- 方法限制：不是 get，head，post
+- 头部限制：包含了一些对于 cors 来说不安全的头部
+- Content-Type 限制
 - 还有一些其他的限制，这里不一一列举了
 
 **请求头部字段**
@@ -652,7 +652,7 @@ MIME类型 type/subtype
   指定该资源允许被哪些源跨域使用
 
   - \* 允许任意来源
-  - 指定一个来源，如果指定了来源，必须在Vary头部中添加Origin头部用于表明不同Origin会有不同的此头部字段值
+  - 指定一个来源，如果指定了来源，必须在 Vary 头部中添加 Origin 头部用于表明不同 Origin 会有不同的此头部字段值
 
 - Access-Control-Allow-Methods
 
@@ -666,13 +666,13 @@ MIME类型 type/subtype
 
   指定预检请求的响应能够缓存多久，单位秒
 
-除了以上常用的响应头部字段，还有一些其他的用于cors响应的头部字段，但是不常用。
+除了以上常用的响应头部字段，还有一些其他的用于 cors 响应的头部字段，但是不常用。
 
-### http缓存
+### http 缓存
 
-http旨在尽可能多缓存响应，只要满足http规定的缓存条件就能缓存响应，这些条件参考<a href="https://www.rfc-editor.org/rfc/rfc9111.html#name-storing-responses-in-caches" target="_blank">RFC9111</a>。
+http 旨在尽可能多缓存响应，只要满足 http 规定的缓存条件就能缓存响应，这些条件参考<a href="https://www.rfc-editor.org/rfc/rfc9111.html#name-storing-responses-in-caches" target="_blank">RFC9111</a>。
 
-目前使用比较广泛的缓存控制策略是通过Cache-Control头，但是不使用某些特定头部也是可以被缓存的，只要响应满足上面说的RFC9111规定的条件。
+目前使用比较广泛的缓存控制策略是通过 Cache-Control 头，但是不使用某些特定头部也是可以被缓存的，只要响应满足上面说的 RFC9111 规定的条件。
 
 **重用缓存**
 
@@ -680,37 +680,37 @@ http旨在尽可能多缓存响应，只要满足http规定的缓存条件就能
 
 我们比较熟知的可以重用缓存的情况可能是：
 
-- URI要匹配
+- URI 要匹配
 
 - 缓存仍然是新鲜的
 - 缓存过期，但是经过重新与服务器验证可以使用过期的缓存
-- 如果响应含有Vary头，那么Vary指定的头匹配才能使用缓存
-- 如果响应含有no-cache指令，必须经过验证才能使用缓存
+- 如果响应含有 Vary 头，那么 Vary 指定的头匹配才能使用缓存
+- 如果响应含有 no-cache 指令，必须经过验证才能使用缓存
 
-其实还存在其他可以重用缓存的情况，例如客户端在Cache-Control中使用max-stale指令，表明可以接受过期时间不超过此设定的缓存。
+其实还存在其他可以重用缓存的情况，例如客户端在 Cache-Control 中使用 max-stale 指令，表明可以接受过期时间不超过此设定的缓存。
 
 **检查新鲜度**
 
-检查缓存是否新鲜的方式是response_is_fresh = (freshness_lifetime > current_age)。
+检查缓存是否新鲜的方式是 response_is_fresh = (freshness_lifetime > current_age)。
 
-计算freshness_lifetime的方式按照下面的优先级：
+计算 freshness_lifetime 的方式按照下面的优先级：
 
-- 如果是共享缓存：Cache-Control的s-maxage指令
-- Cache-Control的max-age指令
-- Expires头 减掉 Date头
-- 以上都没有就属于启发式缓存，使用Date 减掉 Last-Modified，然后取10%
+- 如果是共享缓存：Cache-Control 的 s-maxage 指令
+- Cache-Control 的 max-age 指令
+- Expires 头 减掉 Date 头
+- 以上都没有就属于启发式缓存，使用 Date 减掉 Last-Modified，然后取 10%
 
-计算current_age稍微有些复杂，可以通俗的理解成缓存的当前寿命。
+计算 current_age 稍微有些复杂，可以通俗的理解成缓存的当前寿命。
 
 **重新验证**
 
-虽然缓存中可能存在URI匹配的缓存，但是由于各种原因无法重用缓存，那么可以发起重新验证请求。
+虽然缓存中可能存在 URI 匹配的缓存，但是由于各种原因无法重用缓存，那么可以发起重新验证请求。
 
-如果响应中包含ETag头，在重新验证时使用If-None-Match，如果服务器检查没有修改，可以返回304Not Modified。
+如果响应中包含 ETag 头，在重新验证时使用 If-None-Match，如果服务器检查没有修改，可以返回 304Not Modified。
 
-如果响应中包含Last-Modified头，在重新验证时使用If-Modified-Since，没有修改返回304。
+如果响应中包含 Last-Modified 头，在重新验证时使用 If-Modified-Since，没有修改返回 304。
 
-**Cache-Control常见指令**
+**Cache-Control 常见指令**
 
 可缓存性：public：共享缓存允许被任何对象缓存，private：只允许单个用户缓存，no-cache：仍然可以缓存，只是重用缓存前需要验证，no-store：不缓存
 
@@ -718,30 +718,30 @@ http旨在尽可能多缓存响应，只要满足http规定的缓存条件就能
 
 **缓存模式**
 
-最适合缓存的资源是静态资源，如果资源经常变动，建议在资源改动后修改URL，例如添加hash到文件名，或者添加版本号到查询。
+最适合缓存的资源是静态资源，如果资源经常变动，建议在资源改动后修改 URL，例如添加 hash 到文件名，或者添加版本号到查询。
 
 ### http cookie
 
-可以在响应中使用Set-Cookie头设置cookie，再次向同一服务器发送请求时会附带cookie信息在Cookie头中。
+可以在响应中使用 Set-Cookie 头设置 cookie，再次向同一服务器发送请求时会附带 cookie 信息在 Cookie 头中。
 
-Set-Cookie头包含一些指令，指令之间以分号隔开，例如：
+Set-Cookie 头包含一些指令，指令之间以分号隔开，例如：
 
 - cookie-name=cookie-value
 
 - 失效时间：expires，max-age
 - domain，path
-- 设置secure仅仅在https请求发送，设置httponly后无法通过document.cookie访问
-- samesite：设置为strict仅仅在同一站点请求发送cookie
+- 设置 secure 仅仅在 https 请求发送，设置 httponly 后无法通过 document.cookie 访问
+- samesite：设置为 strict 仅仅在同一站点请求发送 cookie
 
-可以通过document.cookie读取和写入cookie。
+可以通过 document.cookie 读取和写入 cookie。
 
-读取document.cookie的值得到cookie1=value1;cookie2=values;...
+读取 document.cookie 的值得到 cookie1=value1;cookie2=values;...
 
-可以通过设置document.cookie=encodeURIComponent(name) + '=' + encodeURIComponent(value)写入cookie，最好调用encodeURIComponent保持有效格式，如果需要设置指令，以分号隔开。
+可以通过设置 document.cookie=encodeURIComponent(name) + '=' + encodeURIComponent(value)写入 cookie，最好调用 encodeURIComponent 保持有效格式，如果需要设置指令，以分号隔开。
 
-### http常见状态码
+### http 常见状态码
 
-- 101 switching protocol：服务器根据客户端提起的协议升级请求，正在升级协议，例如创建websocket时会使用到
+- 101 switching protocol：服务器根据客户端提起的协议升级请求，正在升级协议，例如创建 websocket 时会使用到
 
   ```http
   HTTP/1.1 101 Switching Protocols
@@ -761,11 +761,11 @@ Set-Cookie头包含一些指令，指令之间以分号隔开，例如：
 
 - 405 method not allow 服务器禁止使用该请求的方法
 
-- 500 internal server error服务器内部错误
+- 500 internal server error 服务器内部错误
 
 - 504 Gateway timeout 扮演网关或者代理的服务器无法在规定的时间内获得想要的响应
 
-## CSS基础概念
+## CSS 基础概念
 
 ### 盒子模型
 
@@ -776,16 +776,20 @@ Set-Cookie头包含一些指令，指令之间以分号隔开，例如：
 - border box：边框
 - margin box：盒子和其他元素之间的空白区域
 
-盒子有一个外部显示类型和内部显示类型，可以由display属性指定为块级或内联，内联盒子只使用了盒子模型的部分内容。
+盒子有一个外部显示类型和内部显示类型，可以由 display 属性指定为块级或内联，内联盒子只使用了盒子模型的部分内容。
 
-默认情况下，width和height属性是作用于content box上的，如果设置了`box-sizing: border-box`（它的默认值是contetn-box），那么padding和border都算作在宽度和高度内。
+默认情况下，width 和 height 属性是作用于 content box 上的，如果设置了`box-sizing: border-box`（它的默认值是 contetn-box），那么 padding 和 border 都算作在宽度和高度内。
+
+### display 属性
+
+display 可以定义外部和内部的显示类型，外部显示类型参与流式布局，内部显示类型定义子元素的布局。
 
 ### 上下外边距折叠
 
 两个盒子的上下外边距相接，那么它们的外边距将会合并成较大的那个，边距合并也是有条件的。
 
-- 设定了float或者position: absolute的不会外边距合并
-- 只对块级元素有效，因为margin对内联元素不起作用
+- 设定了 float 或者 position: absolute 的不会外边距合并
+- 只对块级元素有效，因为 margin 对内联元素不起作用
 - 两个相邻的同级元素
 - 父元素与子元素没有内容
 
@@ -830,19 +834,19 @@ Set-Cookie头包含一些指令，指令之间以分号隔开，例如：
 
 - cross size：flex item 在交叉轴上的大小
 
-下面介绍在弹性盒子布局中flex container可设置的属性
+下面介绍在弹性盒子布局中 flex container 可设置的属性
 
 **主轴方向决定列还是行**
 
-`flex-direction: row | row-reverse | column | column-reverse`，row是默认值
+`flex-direction: row | row-reverse | column | column-reverse`，row 是默认值
 
 _注意：`flex-direction: row`不一定是从左到右，要根据文字排列方向来决定_
 
 **溢出后使用换行**
 
-默认情况下，flex item会自适应布局在一行中，这可能造成溢出，可以使用flex-wrap属性使其换行。
+默认情况下，flex item 会自适应布局在一行中，这可能造成溢出，可以使用 flex-wrap 属性使其换行。
 
-`flex-wrap: nowrap | wrap | wrap-reverse`，nowrap是默认值
+`flex-wrap: nowrap | wrap | wrap-reverse`，nowrap 是默认值
 
 `no-wrap`表示 flex item 都排列在一行中，可能会超出 flex container。
 
@@ -876,7 +880,7 @@ _注意：`flex-direction: row`不一定是从左到右，要根据文字排列�
   <img src="/assets/images/align-content.svg">
 </figure>
 
-下面介绍flex item可设置的属性。
+下面介绍 flex item 可设置的属性。
 
 **flex item 的动态尺寸**
 
@@ -888,7 +892,7 @@ _注意：`flex-direction: row`不一定是从左到右，要根据文字排列�
 
 `flex-shrink`设置一个非负的无单位的值，表示收缩系数，一般在 flex item 溢出时使用以防止溢出，值越大收缩的越多。
 
-`flex-basis`设置了 flex item 在主轴方向上的初始大小，默认值是auto。
+`flex-basis`设置了 flex item 在主轴方向上的初始大小，默认值是 auto。
 
 `flex`是上面三者的缩写。
 
@@ -923,47 +927,39 @@ _注意：`flex-direction: row`不一定是从左到右，要根据文字排列�
 
 ```html
 <div class="grid-demo-app">
-    <div class="grid-demo-header">
-        Header
-    </div>
-    <div class="grid-demo-nav">
-        Nav
-    </div>
-    <div class="grid-demo-main">
-        Main
-    </div>
-    <div class="grid-demo-footer">
-        Footer
-    </div>
+  <div class="grid-demo-header">Header</div>
+  <div class="grid-demo-nav">Nav</div>
+  <div class="grid-demo-main">Main</div>
+  <div class="grid-demo-footer">Footer</div>
 </div>
 ```
 
 ```css
 .grid-demo-app {
-    display: grid;
-    grid-template-columns: auto 1fr;
-    grid-template-rows: auto 1fr auto;
-    gap: 10px;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-rows: auto 1fr auto;
+  gap: 10px;
 }
 .grid-demo-header {
-    grid-column: 1 / 3;
-    grid-row: 1;
-    background-color: aliceblue;
+  grid-column: 1 / 3;
+  grid-row: 1;
+  background-color: aliceblue;
 }
 .grid-demo-nav {
-    grid-column: 1;
-    grid-row: 2 / 4;
-    background-color: antiquewhite;
+  grid-column: 1;
+  grid-row: 2 / 4;
+  background-color: antiquewhite;
 }
 .grid-demo-main {
-    background-color: aqua;
+  background-color: aqua;
 }
 .grid-demo-footer {
-    background-color: aquamarine;
+  background-color: aquamarine;
 }
 ```
 
-header的列从1号网格线到3号网格线，nav的行从2号网格线到4号网格线。
+header 的列从 1 号网格线到 3 号网格线，nav 的行从 2 号网格线到 4 号网格线。
 
 <style>
     .grid-demo-app {
@@ -1008,36 +1004,36 @@ header的列从1号网格线到3号网格线，nav的行从2号网格线到4号�
 
 `grid-area`是`grid-row-start grid-row-end grid-column-start grid-column-end`的缩写，也可以自定义命名。
 
-例如我们给上面的示例命名header，nav，main，footer。
+例如我们给上面的示例命名 header，nav，main，footer。
 
 `grid-template-areas`可以按照命名来放置元素，`.`表示留空。
 
 ```css
 .grid-demo-app {
-    display: grid;
-    grid-template-areas:
-        "header header"
-        "nav main"
-        "nav footer";
-    grid-template-columns: auto 1fr;
-    grid-template-rows: auto 1fr auto;
-    gap: 10px;
+  display: grid;
+  grid-template-areas:
+    "header header"
+    "nav main"
+    "nav footer";
+  grid-template-columns: auto 1fr;
+  grid-template-rows: auto 1fr auto;
+  gap: 10px;
 }
 .grid-demo-header {
-    grid-area: header;
-    background-color: aliceblue;
+  grid-area: header;
+  background-color: aliceblue;
 }
 .grid-demo-nav {
-    grid-area: nav;
-    background-color: antiquewhite;
+  grid-area: nav;
+  background-color: antiquewhite;
 }
 .grid-demo-main {
-    grid-area: main;
-    background-color: aqua;
+  grid-area: main;
+  background-color: aqua;
 }
 .grid-demo-footer {
-    grid-area: footer;
-    background-color: aquamarine;
+  grid-area: footer;
+  background-color: aquamarine;
 }
 ```
 
@@ -1083,11 +1079,16 @@ header的列从1号网格线到3号网格线，nav的行从2号网格线到4号�
         Footer
     </div>
 </div>
+
+### 浮动
+
+浮动的元素会脱离正常的文档流。
+
 ## 手写代码
 
 ### 防抖&节流
 
-防抖debounce和节流throttle都是控制函数执行频率的优化方式。
+防抖 debounce 和节流 throttle 都是控制函数执行频率的优化方式。
 
 **防抖**
 
@@ -1144,7 +1145,7 @@ function debounce(func, wait, immediate = false) {
 }
 ```
 
-我们可以看到，在wait时间内如果再次调用函数是会被忽略的，核心在于重值计时器。
+我们可以看到，在 wait 时间内如果再次调用函数是会被忽略的，核心在于重值计时器。
 
 下面是一个实际运用的例子，点击按钮提交表单，我们期望的是：无论连续点击多少次按钮，只会提交一次。
 
@@ -1181,21 +1182,21 @@ function throttle(func, wait, immediate = false) {
 }
 ```
 
-下面是一个实际运用例子，scroll事件的处理无需如此频繁。
+下面是一个实际运用例子，scroll 事件的处理无需如此频繁。
 
 ```javascript
 container.addEventListener("scroll", throttle(onScroll, 1000));
 ```
 
-## React相关
+## React 相关
 
 ### 函数组件与类组件的不同
 
-函数组件利用闭包的特性绑定了渲染时的props和state，react明确要求不能更改props（不可变immutable），state也不能直接更改，只能通过更新函数。
+函数组件利用闭包的特性绑定了渲染时的 props 和 state，react 明确要求不能更改 props（不可变 immutable），state 也不能直接更改，只能通过更新函数。
 
 然而类组件的实例是可变对象（mutable），`this.props`会随着组件的再次渲染修改。
 
-例如下面这个例子，如果在三秒内以不同的text重新渲染了Print组件，函数组件仍然会显示之前传入的text，而类组件会显示最新的text。
+例如下面这个例子，如果在三秒内以不同的 text 重新渲染了 Print 组件，函数组件仍然会显示之前传入的 text，而类组件会显示最新的 text。
 
 ```jsx
 function Print({ text }) {
@@ -1204,8 +1205,8 @@ function Print({ text }) {
       alert(text);
     }, 3000);
   };
-  
-  return <button onClick={handleClick}>print</button>
+
+  return <button onClick={handleClick}>print</button>;
 }
 
 class Print extends React.Component {
@@ -1214,17 +1215,17 @@ class Print extends React.Component {
       alert(this.props.text);
     }, 3000);
   };
-  
+
   render() {
-    return <button onClick={this.handleClick}>print</button>
+    return <button onClick={this.handleClick}>print</button>;
   }
 }
 ```
 
-如果真的在函数组件中需要使用可变对象，可使用ref，但是不要在渲染过程中使用ref（保证组件纯净）。
+如果真的在函数组件中需要使用可变对象，可使用 ref，但是不要在渲染过程中使用 ref（保证组件纯净）。
 
 ### 受控组件
 
-表单元素的值使用state来控制。
+表单元素的值使用 state 来控制。
 
 好处：表单元素的值可以由代码来控制，例如重置，或者其他内容的值跟随它一起变化。
