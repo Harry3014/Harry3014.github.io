@@ -5,10 +5,6 @@ toc: true
 toc_sticky: true
 date: 2023-04-20
 last_modified_at: 2023-04-20
-categories:
-  - Frontend
-tags:
-  - Frontend
 ---
 
 ## 大致结构

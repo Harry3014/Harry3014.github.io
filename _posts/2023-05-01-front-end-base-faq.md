@@ -1,17 +1,17 @@
 ---
-title: "前端基础概念及常见问题解答"
+title: "置顶🔝"
 excerpt: ""
 toc: true
 toc_sticky: true
-date: 2023-04-04
-last_modified_at: 2023-04-04
+date: 2023-05-01
+last_modified_at: 2023-05-01
 categories:
   - Frontend
 tags:
   - Frontend
 ---
 
-## javascript 基础概念
+## Javascript
 
 ### 作用域
 
@@ -502,6 +502,52 @@ fast error
 
 如果在 async 函数中没有捕获处理错误，那么 promise 的状态会变为 rejected，结果为 reject 的原因。
 
+### 生成器
+
+生成器函数，返回 Generator 对象。
+
+```javascript
+function* gen() {
+  try {
+    let id = 0;
+    while (true) {
+      const step = yield ++id;
+      if (typeof step === "number") {
+        yield (id += step);
+      }
+    }
+  } catch (error) {
+    console.log(error); // test error
+  }
+}
+
+const generator = gen();
+
+console.log(generator.next()); // {value: 1, done: false}
+// 向生成器传入值
+console.log(generator.next(5)); // {value: 6, done; false}
+console.log(generator.next()); // {value: 7, done: false}
+console.log(generator.next()); // {value: 8, done: false}
+// 向生成器抛出错误，这里因为已经到迭代序列的末尾，所以done为true
+console.log(generator.throw("test error")); // {value: undefined, done: true}
+console.log(generator.next()); // {value: undefined, done: true}
+```
+
+```javascript
+function* gen() {
+  yield 1;
+  yield 2;
+  yield 3;
+}
+
+const generator = gen();
+
+console.log(generator.next()); // {value: 1, done: false}
+// 结束生成器
+console.log(generator.return("foo")); // {value: 'foo', done; true}
+console.log(generator.next()); // {value: undefined, done: true}
+```
+
 ### localStorage&sessionStorage
 
 它们用于同一个源下的本地存储，并且提供相同的方法。
@@ -524,6 +570,10 @@ localStorage 可以长期保存，sessionStorage 仅仅在会话期间保存，s
 例如 script 脚本，事件分发，回调，定时器，messageChannel 发送消息等等都属于任务。
 
 那么事件循环模型是如何运作的呢？它就是一个持续运行的循环结构。
+
+<figure>
+  <img src="/assets/images/eventLoop-full.svg">
+</figure>
 
 ```javascript
 while (true) {
@@ -765,39 +815,7 @@ Set-Cookie 头包含一些指令，指令之间以分号隔开，例如：
 
 - 504 Gateway timeout 扮演网关或者代理的服务器无法在规定的时间内获得想要的响应
 
-## CSS 基础概念
-
-### 盒子模型
-
-浏览器渲染的每个元素都可以看成是一个盒子结构，完整的盒子模型从内到外由四部分组成：
-
-- content box：用于显示内容
-- padding box：内容外部的空白区域，内边距的值不能为负数
-- border box：边框
-- margin box：盒子和其他元素之间的空白区域
-
-盒子有一个外部显示类型和内部显示类型，可以由 display 属性指定为块级或内联，内联盒子只使用了盒子模型的部分内容。
-
-默认情况下，width 和 height 属性是作用于 content box 上的，如果设置了`box-sizing: border-box`（它的默认值是 contetn-box），那么 padding 和 border 都算作在宽度和高度内。
-
-### display 属性
-
-display 可以定义外部和内部的显示类型，外部显示类型参与流式布局，内部显示类型定义子元素的布局。
-
-### 上下外边距折叠
-
-两个盒子的上下外边距相接，那么它们的外边距将会合并成较大的那个，边距合并也是有条件的。
-
-- 设定了 float 或者 position: absolute 的不会外边距合并
-- 只对块级元素有效，因为 margin 对内联元素不起作用
-- 两个相邻的同级元素
-- 父元素与子元素没有内容
-
-这里只是列出大的条件，实际还有很多细节限制条件
-
-### 内联盒子
-
-内联盒子也可以设置高度，宽度，外边距，边框，外边距，但是高度和宽度不起作用，其他三个属性会生效，但是不会影响与其他元素的关系。
+## CSS
 
 ### 正常布局流
 
@@ -1084,6 +1102,10 @@ header 的列从 1 号网格线到 3 号网格线，nav 的行从 2 号网格线
 
 浮动的元素会脱离正常的文档流。
 
+### css 居中
+
+[跳转](/centering-in-css)
+
 ## 手写代码
 
 ### 防抖&节流
@@ -1187,6 +1209,10 @@ function throttle(func, wait, immediate = false) {
 ```javascript
 container.addEventListener("scroll", throttle(onScroll, 1000));
 ```
+
+### promise 简单实现
+
+[跳转](/promise-polyfill)
 
 ## React 相关
 
