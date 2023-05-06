@@ -815,7 +815,7 @@ Set-Cookie 头包含一些指令，指令之间以分号隔开，例如：
 
 - 504 Gateway timeout 扮演网关或者代理的服务器无法在规定的时间内获得想要的响应
 
-### http1.x 连接管理
+### http/1.x 连接管理
 
 [跳转 MDN](https://developer.mozilla.org/zh-CN/docs/Web/HTTP/Connection_management_in_HTTP_1.x)
 
@@ -823,9 +823,38 @@ Set-Cookie 头包含一些指令，指令之间以分号隔开，例如：
   <img src="/assets/images/http1_x_connections.png">
 </figure>
 
-http1.0 早期使用短链接，每个请求都要建立一个 tcp 连接，太耗费资源。
+http/1.x 的连接管理模型依次出现了：短连接 short-lives，持久连接 persistent，流水线 pipelining。
 
-常连接是让 tcp 连接保留一段时间，服务器可以使用 keep-alive 头部控制，但是也是需要响应返回后才能再次发出请求。
+**短连接**
+每个请求完成后就关闭了 tcp 连接，新的请求发出之前都需要再次建立 tcp 连接。
+
+缺点：建立新的 tcp 太耗费资源。
+
+**持久连接**
+
+持久连接允许让 tcp 连接保留一段时间。客户端和服务器可以设置`Connection： keep-alive`通用头部来表明是否支持长连接，还可以通过`Keep-Alive`通用头部设置超时时长和最大请求数。
+
+缺点：tcp 一直保持连接状态也是占用资源的。
+
+**流水线**
+流水线建立在持久连接的基础上。
+
+默认情况下，新的请求只有在当前请求收到响应过后才会被发出。而流水线则可以发出连续的请求，而不用等待应答返回。
+
+但是由于 http/1.x 限制，服务器只能按照请求的顺序进行响应，假设某个请求不能及时响应，那么后面的请求也无法响应，这就是队头阻塞问题。http/2 实现了多路复用，解决了队头阻塞问题。
+
+### http/2
+
+[跳转至华为对 http/2 的解释](https://info.support.huawei.com/info-finder/encyclopedia/zh/HTTP--2.html)
+[其他的 http/2 分析文章](https://web.dev/performance-http2/)
+
+**对比 http/1.x**
+
+- 没有对 http 协议的应用语义做出改动，依然使用请求方法、状态码、头字段等。
+- 传输格式从文本格式转为二进制
+- 头部压缩，因为很多头部都是类似的
+- 实现了多路复用 multiplexing，可以在同一个 tcp 连接中并行的交换消息
+- 服务器推送，可以在请求前发送数据，因为服务器可能知道你需要这些数据
 
 ## CSS
 
