@@ -815,6 +815,18 @@ Set-Cookie 头包含一些指令，指令之间以分号隔开，例如：
 
 - 504 Gateway timeout 扮演网关或者代理的服务器无法在规定的时间内获得想要的响应
 
+### http1.x 连接管理
+
+[跳转 MDN](https://developer.mozilla.org/zh-CN/docs/Web/HTTP/Connection_management_in_HTTP_1.x)
+
+<figure>
+  <img src="/assets/images/http1_x_connections.png">
+</figure>
+
+http1.0 早期使用短链接，每个请求都要建立一个 tcp 连接，太耗费资源。
+
+常连接是让 tcp 连接保留一段时间，服务器可以使用 keep-alive 头部控制，但是也是需要响应返回后才能再次发出请求。
+
 ## CSS
 
 ### 正常布局流
@@ -1213,6 +1225,119 @@ container.addEventListener("scroll", throttle(onScroll, 1000));
 ### promise 简单实现
 
 [跳转](/promise-polyfill)
+
+### 用生成器实现 async&await
+
+```javascript
+function resolveAfterXSeconds(timeout) {
+  return new Promise((resolve, reject) => {
+    setTimeout(() => {
+      resolve(`resolved after ${timeout} seconds`);
+    }, timeout * 1000);
+  });
+}
+
+async function asyncTest() {
+  const result1 = await resolveAfterXSeconds(2);
+  console.log(result1);
+
+  const result2 = await resolveAfterXSeconds(3);
+  console.log(result2);
+
+  return "done";
+}
+
+asyncTest().then((value) => {
+  console.log(value);
+});
+
+// 依次输出
+// resolve after 2 seconds
+// resolve after 3 seconds
+// done
+```
+
+上面的代码可以转换成生成器函数形式。
+
+```javascript
+function* genTest() {
+  const result1 = yield resolveAfterXSeconds(2);
+  console.log(result1);
+
+  const result2 = yield resolveAfterXSeconds(3);
+  console.log(result2);
+
+  return "done";
+}
+
+const gen = genTest();
+
+const info1 = gen.next();
+const promise1 = info1.value;
+
+promise1.then((value) => {
+  const info2 = gen.next(value);
+  const promise2 = info2.value;
+
+  promise2.then((value) => {
+    const info3 = gen.next(value);
+    // 此时info3为{value: "done", done: true}
+  });
+});
+```
+
+我们可以总结出它的过程：调用生成器的`next`方法获得对象`{value, done}`，value 就是以前 await 后面的表达式。
+
+注意：这里我们设置的都是 promise，但是 await 后面可以是任意值，不是 promise 的值会被隐式转换。
+
+在 promise 被解决后，将解决值传入生成器，继续调用 next，直到末尾。
+
+现在我们根据总结出的规律，编写一个函数，让生成器函数自动运行。
+
+```javascript
+function asyncToGenerator(genFn) {
+  return function () {
+    const generator = genFn.apply(this, arguments);
+
+    return new Promise((resolve, reject) => {
+      function callGenerator(method, arg) {
+        let info = null;
+
+        try {
+          info = generator[method](arg);
+        } catch (error) {
+          reject(error);
+          return;
+        }
+
+        if (!info.done) {
+          Promise.resolve(info.value).then(
+            (result) => {
+              callGenerator("next", result);
+            },
+            (error) => {
+              callGenerator("throw", error);
+            }
+          );
+        } else {
+          resolve(info.value);
+        }
+      }
+
+      callGenerator("next");
+    });
+  };
+}
+
+asyncToGenerator(genTest)().then((value) => {
+  console.log(value);
+});
+```
+
+关键点：
+
+- 调用 async 函数返回 promise
+- await 后面的值并不一定是 promise，我们嵌套一层`Promise.resolve`
 
 ## React 相关
 
