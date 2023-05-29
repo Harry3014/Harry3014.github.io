@@ -111,10 +111,6 @@ function App() {
 }
 ```
 
-<figure>
-  <im
-</figure>
-
 ```jsx
 function App() {
   return <h1>Hello world</h1>;

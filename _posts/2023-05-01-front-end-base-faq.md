@@ -177,7 +177,7 @@ user 继承了 User 函数的原型，所以可以找到 sayHello 属性进行�
 
 User 函数本身也是一个对象，它的原型链是 User -> Function.prototype -> Object.prototype -> null。
 
-User 函数继承了 Function 函数的原型，可以 User 函数可以调用 bind，apply 等函数。
+User 函数继承了 Function 函数的原型，所以 User 函数可以调用 bind，apply 等函数。
 
 ### typeof & instanceof
 
@@ -253,7 +253,7 @@ this 的值是在代码运行时绑定，取决于执行上下文。
   这里顺便说一下使用 new 调用构造函数生成一个对象的过程
 
   - 创建一个空的简单对象`{}`
-  - 对象的`_proto___`指向构造函数的原型对象
+  - 对象的`__proto__`指向构造函数的原型对象
   - 将新创建的对象作为 this
   - 执行构造函数内容
   - 如果没有返回值，默认返回这个对象
@@ -306,7 +306,7 @@ function executor(resolve, reject) {
 - executor 在 promise 创建的期间被执行
 - resolve 和 reject 在创建 promise 时同时被创建，并且绑定该 promise
 - executor 中通常用于执行一些异步操作
-- 通过调用 resolve，reject 反应异步操作的结果，否则 promise 的状态一直是 pending
+- 通过调用 resolve，reject 反映异步操作的结果，否则 promise 的状态一直是 pending
 - 如果在 executor 中发生了错误，那么 promise 状态变为 rejected
 - executor 的返回值会被忽略
 
@@ -563,11 +563,17 @@ localStorage 可以长期保存，sessionStorage 仅仅在会话期间保存，s
 
 ### 事件循环
 
+[跳转 YouTube](https://youtu.be/u1kqx6AenYw)
+
 为了协调事件，交互，脚本，渲染，网络请求等等，浏览器或者其他用户代理（例如邮件阅读器）使用事件循环模型来管理协调这些内容。
+
+它是 JavaScript 作为一门单线程编程语言实现非阻塞处理 I / O 等事件的方式。
 
 这些事件可以理解为任务，当事件发生时，就将任务放进相应的任务队列，不止一个任务队列，微任务队列是一个特殊的队列，不属于任务队列。
 
 例如 script 脚本，事件分发，回调，定时器，messageChannel 发送消息等等都属于任务。
+
+promise callback，MutationObserver callback 属于微任务，也可以通过 queueMicroTask API 添加微任务。
 
 那么事件循环模型是如何运作的呢？它就是一个持续运行的循环结构。
 
@@ -643,6 +649,49 @@ DNS 查询得到 IP 地址
 
 - 绝对值与`Number.EPSILON`进行比较
 - 使用一些库，例如 decimal.js
+
+### 建立 tcp 三次握手
+
+[跳转 RFC](https://www.rfc-editor.org/rfc/rfc9293#name-establishing-a-connection)
+
+<pre>    TCP Peer A                                           TCP Peer B
+
+1.  SYN-SENT    --&gt; &lt;SEQ=100&gt;&lt;CTL=SYN&gt;               --&gt; SYN-RECEIVED
+
+2.  ESTABLISHED &lt;-- &lt;SEQ=300&gt;&lt;ACK=101&gt;&lt;CTL=SYN,ACK&gt;  &lt;-- SYN-RECEIVED
+
+3.  ESTABLISHED --&gt; &lt;SEQ=101&gt;&lt;ACK=301&gt;&lt;CTL=ACK&gt;       --&gt; ESTABLISHED
+</pre>
+
+### 关闭 tcp 连接四次挥手
+
+[跳转 RFC](https://www.rfc-editor.org/rfc/rfc9293#name-closing-a-connection)
+
+<pre>    TCP Peer A                                           TCP Peer B
+
+1.  (Close)
+    FIN-WAIT-1  --&gt; &lt;SEQ=100&gt;&lt;ACK=300&gt;&lt;CTL=FIN,ACK&gt;  --&gt; CLOSE-WAIT
+
+2.  FIN-WAIT-2  &lt;-- &lt;SEQ=300&gt;&lt;ACK=101&gt;&lt;CTL=ACK&gt;      &lt;-- CLOSE-WAIT
+
+3.                                                       (Close)
+    TIME-WAIT   &lt;-- &lt;SEQ=300&gt;&lt;ACK=101&gt;&lt;CTL=FIN,ACK&gt;  &lt;-- LAST-ACK
+
+4.  TIME-WAIT   --&gt; &lt;SEQ=101&gt;&lt;ACK=301&gt;&lt;CTL=ACK&gt;      --&gt; CLOSED
+
+5.  (2 MSL)
+    CLOSED
+</pre>
+
+### TLS 握手
+
+<figure>
+  <img src="/assets/images/tls-handshake.png">
+</figure>
+
+1. 发起方发送 ClientHello 消息，包括支持的 TLS 版本，密码套件等信息
+2. 接收方发送 ServerHello 消息，包括以决定的 TLS 版本，密码套件，证书等信息
+3. 如果证书验证是有效的，那么就可以进行密钥交换
 
 ## HTTP
 
@@ -731,7 +780,6 @@ http 旨在尽可能多缓存响应，只要满足 http 规定的缓存条件就
 我们比较熟知的可以重用缓存的情况可能是：
 
 - URI 要匹配
-
 - 缓存仍然是新鲜的
 - 缓存过期，但是经过重新与服务器验证可以使用过期的缓存
 - 如果响应含有 Vary 头，那么 Vary 指定的头匹配才能使用缓存
@@ -810,6 +858,8 @@ Set-Cookie 头包含一些指令，指令之间以分号隔开，例如：
 - 404 not found 服务器找不到相关内容
 
 - 405 method not allow 服务器禁止使用该请求的方法
+
+- 429 too many requests，一定时间内超出了频率限制，在响应中可设置 Retry-After 头部告知需要等待多少秒，ChatGPT 调用 Sentry 接口时见过。
 
 - 500 internal server error 服务器内部错误
 
@@ -1208,7 +1258,7 @@ function debounce(func, wait, immediate = false) {
 }
 ```
 
-我们可以看到，在 wait 时间内如果再次调用函数是会被忽略的，核心在于重值计时器。
+我们可以看到，在 wait 时间内如果再次调用函数是会被忽略的，核心在于重置计时器。
 
 下面是一个实际运用的例子，点击按钮提交表单，我们期望的是：无论连续点击多少次按钮，只会提交一次。
 
@@ -1406,6 +1456,136 @@ class Print extends React.Component {
 
 ### 受控组件
 
-表单元素的值使用 state 来控制。
+表单的数据由 React 组件来管理，在输入后利用 onChange 事件设置它的值从而重新渲染为新值。
 
-好处：表单元素的值可以由代码来控制，例如重置，或者其他内容的值跟随它一起变化。
+好处：数据来源唯一，重置很方便，或者其他内容的值需要跟随它一起变化时也很方便。
+
+缺点：每种可能导致变化的情况都要编写处理函数。
+
+```jsx
+function Input() {
+  const [text, setText] = useState("");
+
+  const handleChange = (event) => {
+    setText(event.target.value);
+  };
+
+  return <input value={text} />;
+}
+```
+
+### 非受控组件
+
+表单的数据由 DOM 处理。
+
+文件输入的值只能通过 File API 进行操作，它始终是非受控组件，可以通过使用 ref 来控制 DOM。
+
+```jsx
+function Demo() {
+  const inputRef = useRef(null);
+
+  const handleClick = () => {
+    inputRef.current.files[0];
+  };
+
+  return (
+    <>
+      <input type="file" ref={inputRef} />
+      <button onClick={handleClick}></button>
+    </>
+  );
+}
+```
+
+## 资源
+
+[web 性能权威指南（中文版）](https://awesome-programming-books.github.io/http/Web%E6%80%A7%E8%83%BD%E6%9D%83%E5%A8%81%E6%8C%87%E5%8D%97.pdf)
+
+[web 性能权威指南（英文版）](https://hpbn.co/)
+
+[图解 HTTP](https://awesome-programming-books.github.io/http/%E5%9B%BE%E8%A7%A3HTTP.pdf)
+
+## 备忘
+
+### react 确定 hook 的 dispatcher
+
+调用 hook 首先确定 dispatcher
+
+```js
+function useState(initialState) {
+  dispatcher = resolveDispatcher();
+  return dispatcher.useState(initialState);
+}
+```
+
+是在 updateFunctionComponent -> renderWithHooks 中根据 current 与 null 比较确定。
+
+```js
+if (current === null) {
+  dispatcher = HooksDispatcherOnMount;
+} else {
+  dispatcher = HooksDispatcherOnUpdate;
+}
+```
+
+### antd 自定义表单控件
+
+如果自定义表单控件需要与 Form 配合使用，需要满足：
+
+- 提供 value 属性（或者与 valuePropName 属性值的同名属性）
+- 提供 onChange 事件处理（或者与 trigger 属性值的同名属性进行值变化的事件处理）
+
+### react hook 依赖列表中的函数处理
+
+当 hook 中使用一个外部函数时，如果这个函数或者它调用的函数使用了 state，props 及其衍生品时，最好不要从依赖列表中删除。
+
+例如下面这个例子，`fetchProduct`使用了`productId`。
+
+```jsx
+function ProductPage({ productId }) {
+  const [product, setProduct] = useState(null);
+
+  async function fetchProduct() {
+    const response = await fetch(`http://myapi/product/${productId}`); // 使用了 productId prop
+    const json = await response.json();
+    setProduct(json);
+  }
+
+  useEffect(() => {
+    fetchProduct();
+  }, []);
+  // ...
+}
+```
+
+方案 1:将这个函数移动到 hook 内部。
+
+```jsx
+function ProductPage({ productId }) {
+  const [product, setProduct] = useState(null);
+
+  useEffect(() => {
+    let ignore = false; // 处理无序响应
+
+    // 把这个函数移动到 effect 内部后，我们可以清楚地看到它用到的值。
+    async function fetchProduct() {
+      const response = await fetch(`http://myapi/product/${productId}`);
+      const json = await response.json();
+      if (!ignore) setProduct(json);
+    }
+
+    fetchProduct();
+
+    return () => {
+      ignore = true;
+    };
+  }, [productId]); // ✅ 有效，因为我们的 effect 只用到了 productId
+  // ...
+}
+```
+
+方案 2: 尝试将此方法移到组件外。
+
+方案 3:如果函数是纯函数，考虑在渲染期间调用，然后依赖于它的返回值。
+
+方案 4:使用 useCallback 将此函数记忆化，然后依赖于记忆化后的回调函数。
