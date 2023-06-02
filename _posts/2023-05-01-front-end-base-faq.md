@@ -1589,3 +1589,126 @@ function ProductPage({ productId }) {
 方案 3:如果函数是纯函数，考虑在渲染期间调用，然后依赖于它的返回值。
 
 方案 4:使用 useCallback 将此函数记忆化，然后依赖于记忆化后的回调函数。
+
+### react render props
+
+[React 旧文档](https://zh-hans.legacy.reactjs.org/docs/render-props.html)
+[博客介绍](https://www.robinwieruch.de/react-render-props/)
+
+解决问题：将一个组件已经封装的状态或者行为共享给其他组件。
+
+```jsx
+import { useState } from "react";
+
+export default function RenderPropDemo() {
+  return (
+    <Amount>
+      {(amount) => {
+        return (
+          <>
+            <Euro amount={amount} />
+            <Pound amount={amount} />
+          </>
+        );
+      }}
+    </Amount>
+  );
+}
+
+function Euro({ amount }) {
+  return <p>Euro: {amount * 0.82}</p>;
+}
+
+function Pound({ amount }) {
+  return <p>Euro: {amount * 0.75}</p>;
+}
+
+function Amount({ children }) {
+  const [amount, setAmount] = useState(0);
+
+  const onIncrement = () => {
+    setAmount((a) => a + 1);
+  };
+
+  const onDecrement = () => {
+    setAmount((a) => a - 1);
+  };
+
+  return (
+    <div>
+      <span>US Dollar: {amount} </span>
+
+      <button type="button" onClick={onIncrement}>
+        +
+      </button>
+      <button type="button" onClick={onDecrement}>
+        -
+      </button>
+      {children(amount)}
+    </div>
+  );
+}
+```
+
+上面的示例中：Amount 组件共享了它的状态给 Euro 和 Pound 组件。
+
+可以使用任何属性名称，例如 render 或者上面的 children 等等，这个属性需要是一个函数。
+
+### 高阶组件
+
+[React 旧的文档](https://zh-hans.legacy.reactjs.org/docs/higher-order-components.html)
+[博客介绍](https://www.robinwieruch.de/react-higher-order-components/)
+
+高阶组件和 render props 解决的是同一类问题。
+
+```jsx
+function withHighOrderComponent(WrappedComponent) {
+  return (props) => {
+    // ...
+    return <WrappedComponent {...props} />;
+  };
+}
+
+// 调用这个函数生成了一个新租价
+const WithComponentA = withHighOrderComponent(ComponentA);
+
+function App() {
+  return <WithComponentA />;
+}
+```
+
+高阶组件是一个函数，它接受一个组件为参数（还可以添加其他任何参数），返回一个新的包装好的组件。注意不能更改传入的组件，但是可以进行组合。这样的设计模式就重用了 WrappedComponent 的逻辑。
+
+### ref 转发
+
+[react 文档](https://zh-hans.react.dev/reference/react/forwardRef)
+
+可以将 dom 向上暴露给祖先。
+
+```jsx
+import { forwardRef, useRef } from "react";
+
+const MyInput = forwardRef((props, ref) => {
+  const { label, ...otherProps } = props;
+  return (
+    <label>
+      {label} <input ref={ref} {...otherProps} />
+    </label>
+  );
+});
+
+export default function FowardRefDemo() {
+  const inputRef = useRef(null);
+
+  function handleClick() {
+    inputRef.current.focus();
+  }
+
+  return (
+    <>
+      <MyInput label="Name" ref={inputRef} />
+      <button onClick={handleClick}>Edit</button>
+    </>
+  );
+}
+```
