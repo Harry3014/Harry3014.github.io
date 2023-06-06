@@ -1505,6 +1505,10 @@ function Demo() {
 
 [图解 HTTP](https://awesome-programming-books.github.io/http/%E5%9B%BE%E8%A7%A3HTTP.pdf)
 
+[博客：测试 react 组件](https://www.robinwieruch.de/react-testing-tutorial/)
+
+[博客：比较hoc和hook](https://www.robinwieruch.de/react-hooks-higher-order-components/)
+
 ## 备忘
 
 ### react 确定 hook 的 dispatcher
@@ -1711,4 +1715,21 @@ export default function FowardRefDemo() {
     </>
   );
 }
+```
+
+### react 数据获取
+
+常见进行数据获取的方式：class 组件的`componentDidMount`生命周期、`useEffect`、事件处理。
+
+[博客介绍类组件获取数据](https://www.robinwieruch.de/react-fetching-data/)
+[博客介绍 hook 获取数据](https://www.robinwieruch.de/react-hooks-fetch-data/)
+
+### useEffect
+
+`useEffect(setup)`中的 setup 函数只能返回 cleanup 函数，所以下面这样使用不正确，因为 async 函数总是返回一个 promise。
+
+```js
+useEffect(async () => {
+  // ...
+});
 ```
