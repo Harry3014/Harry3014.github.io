@@ -15,6 +15,8 @@ tags:
 
 ## Lanes 模型
 
+用于定义任务的优先级，react 可以利用此结构进行任务的调度，动态调整任务的执行顺序，例如让优先级高的任务先执行，也能让优先级不那么高的任务中断，以达到更好的用户体验。
+
 ### 数据结构
 
 lane 最初是在 fiber reconciler 中提出的，是为了替换原先的 expiration time 模型，他的值是一个 32 位的二进制。
@@ -59,7 +61,7 @@ export function intersectLanes(a: Lanes | Lane, b: Lanes | Lane): Lanes {
 
 ### 从触发渲染开始
 
-**创建lane**
+**创建 lane**
 
 无论是初次渲染 updateContainer，还是调用了 useState 的 set 函数，class 组件的`this.setState`，useReducer 的 dispatch 函数，都会调用一个叫 requestUpdateLane 的函数创建 lane。
 
@@ -248,7 +250,7 @@ requestUpdateLane 函数中我们重点关注三类情况：
   }
   ```
 
-- 起源于 react 外部，例如 host 事件，除了上面的两类高优先级事件，或者在高于root container的层级触发的事件。
+- 起源于 react 外部，例如 host 事件，除了上面的两类高优先级事件，或者在高于 root container 的层级触发的事件。
 
   ```javascript
   export function getCurrentEventPriority(): EventPriority {
@@ -260,7 +262,7 @@ requestUpdateLane 函数中我们重点关注三类情况：
   }
   ```
 
-**标记lane**
+**标记 lane**
 
 创建 update lane 后，会合并到 fiber.lanes 上，并且会向上遍历祖先合并到 childLanes。
 
@@ -321,7 +323,7 @@ export function markRootUpdated(
 }
 ```
 
-**安排root任务时使用lane**
+**安排 root 任务时使用 lane**
 
 在给 root 安排一个 task 时，会获取 nextLanes，并且根据优先级绑定不同的回调函数。
 
@@ -370,11 +372,11 @@ function ensureRootIsScheduled(root: FiberRoot, currentTime: number) {
 }
 ```
 
-**执行root任务时使用lane**
+**执行 root 任务时使用 lane**
 
-在真正处理 root 上的 task 时也一样获取 nextLanes，performConcurrent会使用lane判断是否应该切片，**目前只有transition和Suspense会切片**。
+在真正处理 root 上的 task 时也一样获取 nextLanes，performConcurrent 会使用 lane 判断是否应该切片，**目前只有 transition 和 Suspense 会切片**。
 
-<a href="https://github.com/facebook/react/issues/24392#issuecomment-1237604765" target="_blank">transiton和Suspense切片</a>
+<a href="https://github.com/facebook/react/issues/24392#issuecomment-1237604765" target="_blank">transiton 和 Suspense 切片</a>
 
 ```javascript
 // This is the entry point for every concurrent task, i.e. anything that
@@ -404,9 +406,9 @@ function performConcurrentWorkOnRoot(root: FiberRoot, didTimeout: boolean) {
 }
 ```
 
-**渲染阶段使用lane**
+**渲染阶段使用 lane**
 
-渲染阶段主要是beginWork阶段使用lanes。
+渲染阶段主要是 beginWork 阶段使用 lanes。
 
 - 检查子树是否有待办任务，如果没有，可以返回 null 跳过
 
@@ -447,5 +449,3 @@ function updateReducer(reducer, initialArg, init) {
   }
 }
 ```
-
-
