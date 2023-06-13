@@ -59,7 +59,7 @@ React 使用声明式编写 UI，这使得开发者的工作变得更加容易�
 
 - ref
 
-  指定的ref对象。
+  指定的 ref 对象。
 
 举个例子，`<h1 className="greeting">Hello from <i>React</i></h1>`会创建一个元素：
 
@@ -202,23 +202,23 @@ Fiber 对象包含下列属性：
   export const FunctionComponent = 0;
   export const ClassComponent = 1;
   // Before we know whether it is function or class
-  export const IndeterminateComponent = 2; 
+  export const IndeterminateComponent = 2;
   // Root of a host tree. Could be nested inside another node.
-  export const HostRoot = 3; 
+  export const HostRoot = 3;
   export const HostComponent = 5;
   ```
 
 - key
 
-  fiber的唯一性表示，如果是元素对应的fiber，那么从element.key复制。
+  fiber 的唯一性标识，如果是元素对应的 fiber，那么从 element.key 复制。
 
 - elementType
 
-  如果是元素对应的fiber，那么从element.type复制。
+  如果是元素对应的 fiber，那么从 element.type 复制。
 
 - type
 
-  已经处理过的类型，与elementType类似。
+  已经处理过的类型，与 elementType 类似。
 
 - stateNode
 
@@ -230,7 +230,7 @@ Fiber 对象包含下列属性：
 
 - index
 
-  fiber在同层级children中的index。
+  fiber 在同层级 children 中的 index。
 
 - pendingProps, memoizedProps
 
@@ -238,7 +238,7 @@ Fiber 对象包含下列属性：
 
 - memoizedState
 
-  state相关，用于创建输出。类组件：保存了state。函数组件：保存了hook。
+  state 相关，用于创建输出。类组件：保存了 state。函数组件：保存了 hook。
 
 - flags, subtreeFlags, deletions
 
@@ -254,7 +254,7 @@ Fiber 对象包含下列属性：
 
 **Fiber tree**
 
-Fiber 中的属性`return, child, sibling`使得 Fiber 之间建立了联系，构成了 Fiber 树，根结点叫做`HostRoot`，根节点保存在FiberRootNode.current上，并且`HostRoot.stateNode === FiberRootNode`。
+Fiber 中的属性`return, child, sibling`使得 Fiber 之间建立了联系，构成了 Fiber 树，根结点叫做`HostRoot`，根节点保存在 FiberRootNode.current 上，并且`HostRoot.stateNode === FiberRootNode`。
 
 <figure>
   <figcaption>Fiber tree</figcaption>

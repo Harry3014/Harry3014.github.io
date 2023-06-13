@@ -3,8 +3,8 @@ title: "置顶🔝"
 excerpt: ""
 toc: true
 toc_sticky: true
-date: 2023-05-01
-last_modified_at: 2023-05-01
+date: 2023-06-10
+last_modified_at: 2023-06-10
 categories:
   - Frontend
 tags:
@@ -1507,7 +1507,7 @@ function Demo() {
 
 [博客：测试 react 组件](https://www.robinwieruch.de/react-testing-tutorial/)
 
-[博客：比较hoc和hook](https://www.robinwieruch.de/react-hooks-higher-order-components/)
+[博客：比较 hoc 和 hook](https://www.robinwieruch.de/react-hooks-higher-order-components/)
 
 ## 备忘
 
