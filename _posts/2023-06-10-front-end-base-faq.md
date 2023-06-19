@@ -559,6 +559,14 @@ console.log(generator.next()); // {value: undefined, done: true}
 
 localStorage 可以长期保存，sessionStorage 仅仅在会话期间保存，sessionStorage 同一个 URL 打开不同标签也会创建各自的 sessionStorage。
 
+### WeakMap 与 Map 的区别
+
+为什么会引入 WeakMap，因为 Map 的键和值一直被引用，可能会导致内存泄漏，除非手动删除，而 WeakMap 的键是弱引用的，是可以被回收的。
+
+WeakMap 的键一定是对象，它的键不可枚举，所以无法迭代。
+
+[参考 MDN](https://developer.mozilla.org/zh-CN/docs/Web/JavaScript/Guide/Keyed_collections)
+
 ## 常见问题
 
 ### 事件循环
@@ -689,9 +697,9 @@ DNS 查询得到 IP 地址
   <img src="/assets/images/tls-handshake.png">
 </figure>
 
-1. 发起方发送 ClientHello 消息，包括支持的 TLS 版本，密码套件等信息
-2. 接收方发送 ServerHello 消息，包括以决定的 TLS 版本，密码套件，证书等信息
-3. 如果证书验证是有效的，那么就可以进行密钥交换
+1. 客户端发送 ClientHello 消息，包括支持的 TLS 版本，密码套件（包括加密算法）等信息
+2. 服务器收到消息后，判断是否支持相关版本和密码套件，如果支持，那么可以发回已决定的 TLS 版本，密码套件，证书等信息，证书包含颁发机构，公钥等信息
+3. 客户端验证证书是否有效，所有验证通过后，客户端使用随机数生成一个会话密钥，并使用公钥加密，然后发回到服务器，只有服务器的私钥才能解密得到会话密钥。后续使用这个会话密钥加密数据。
 
 ## HTTP
 
@@ -1418,6 +1426,109 @@ asyncToGenerator(genTest)().then((value) => {
 - 调用 async 函数返回 promise
 - await 后面的值并不一定是 promise，我们嵌套一层`Promise.resolve`
 
+### 实现深拷贝
+
+主要利用递归的思想实现，但是对于一些内置的对象类型，例如 Date，正则表达式，函数等等，需要特殊处理，这里不一一实现。
+
+为了避免循环引用导致的死循环问题，我们使用一个 weakmap 保存之前已处理结果。
+
+```js
+function deepClone(obj, visited = new WeakMap()) {
+  if (visited.has(obj)) {
+    return visited.get(obj);
+  }
+
+  let result;
+
+  if (Array.isArray(obj)) {
+    result = [];
+    visited.set(obj, result);
+
+    for (let i = 0; i < obj.length; i++) {
+      result[i] = deepClone(obj[i], visited);
+    }
+  } else if (typeof obj === "object" && obj !== null) {
+    result = {};
+    visited.set(obj, result);
+
+    for (const prop in obj) {
+      if (Object.hasOwn(obj, prop)) {
+        result[prop] = deepClone(obj[prop], visited);
+      }
+    }
+  } else if (typeof obj === "function") {
+    result = function () {
+      obj.apply(this, arguments);
+    };
+    visited.set(obj, result);
+  } else {
+    return obj;
+  }
+
+  return result;
+}
+```
+
+### 数组去重
+
+使用 Set
+
+```js
+function removeDup(array) {
+  return [...new Set(array)];
+}
+```
+
+使用 filter
+
+```js
+function removeDup(array) {
+  return array.filter((element, index, array) => {
+    return array.indexOf(element) === index;
+  });
+}
+```
+
+使用 reduce
+
+```js
+function removeDup(array) {
+  return array.reduce((acc, current) => {
+    if (!acc.includes(current)) {
+      acc.push(current);
+    }
+    return acc;
+  }, []);
+}
+```
+
+### 数字添加千分位
+
+解释`/\B(?=(\d{3})+(?!\d))/g`
+
+- `\B`：表示非单词边界，匹配一个位置，这个位置不是单词边界（即，前面或者后面都是数字或者非单词字符）。这个非单词边界确保了我们不会在数字的开头添加千位分隔符。
+
+- `(?=(\d{3})+(?!\d))`：这是一个零宽度正预测先行断言，它匹配一个位置，这个位置后面的字符满足一定的条件，但是这个条件不会被包含在匹配结果中。具体的条件是：
+
+  - `(\d{3})+`：匹配三个数字，这个匹配重复出现至少一次（"+" 表示匹配一个或多个，即重复出现若干次，这里的“若干次”是至少一次），这个匹配的结果会被保存到一个分组中。
+
+  - `(?!\d)` 零宽度正向否定查找，表示这个位置后面不能跟着数字，也就是说，这个位置后面只能跟着非数字字符或者字符串结尾。这个条件确保我们不会在数字的结尾添加千位分隔符。
+
+```js
+function formatNum(num) {
+  if (typeof num !== "number") {
+    return num;
+  }
+  const parts = num.toString().split(".");
+  const integerPart = parts[0];
+  let result = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  if (parts.length > 1) {
+    result = `${result}.${parts[1]}`;
+  }
+  return result;
+}
+```
+
 ## React 相关
 
 ### 函数组件与类组件的不同
@@ -1673,7 +1784,7 @@ function withHighOrderComponent(WrappedComponent) {
   };
 }
 
-// 调用这个函数生成了一个新租价
+// 调用这个函数生成了一个新组件
 const WithComponentA = withHighOrderComponent(ComponentA);
 
 function App() {
@@ -1732,4 +1843,90 @@ export default function FowardRefDemo() {
 useEffect(async () => {
   // ...
 });
+```
+
+## 数据结构和算法
+
+### 深度优先遍历
+
+递归实现
+
+```js
+function dfs(node) {
+  node.visited = true;
+  if (node.children) {
+    for (const child of node.children) {
+      dfs(child);
+    }
+  }
+}
+```
+
+栈实现
+
+```js
+function dfs(root) {
+  const stack = [root];
+  while (stack.length > 0) {
+    const node = stack.pop();
+    node.visited = true;
+
+    for (let i = node.children.length - 1; i >= 0; i--) {
+      stack.push(node.children[i]);
+    }
+  }
+}
+```
+
+### 广度优先遍历
+
+利用队列实现
+
+```js
+function bfs(root) {
+  const queue = [root];
+  while (queue.length > 0) {
+    const node = queue.shift();
+    node.visited = true;
+
+    for (const child of node.children) {
+      queue.push(child);
+    }
+  }
+}
+```
+
+### 二叉树反转
+
+利用递归实现
+
+```js
+function reverse(node) {
+  if (node !== null) {
+    const right = reverse(node.left);
+    const left = reverse(node.right);
+
+    node.left = right;
+    node.right = left;
+  }
+  return node;
+}
+```
+
+也可以使用队列实现
+
+```js
+function reverse(root) {
+  const queue = [root];
+  while (queue.length > 0) {
+    const node = queue.shift();
+    [node.left, node.right] = [node.right, node.left];
+    if (node.left !== null) {
+      queue.push(node.left);
+    }
+    if (node.right !== null) {
+      queue.push(node.right);
+    }
+  }
+}
 ```
