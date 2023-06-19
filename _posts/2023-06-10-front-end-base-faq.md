@@ -761,6 +761,11 @@ MIME 类型 type/subtype
   - \* 允许任意来源
   - 指定一个来源，如果指定了来源，必须在 Vary 头部中添加 Origin 头部用于表明不同 Origin 会有不同的此头部字段值
 
+  ```http
+  Access-Control-Allow-Origin: https://developer.mozilla.org
+  Vary: Origin
+  ```
+
 - Access-Control-Allow-Methods
 
   告知浏览器跨域请求允许使用的方法，用于响应预检请求，逗号隔开
@@ -771,7 +776,7 @@ MIME 类型 type/subtype
 
 - Access-Control-Max-Age
 
-  指定预检请求的响应能够缓存多久，单位秒
+  指定预检请求的响应能够缓存多久，单位秒，默认 5 秒，浏览器有一个最大限制
 
 除了以上常用的响应头部字段，还有一些其他的用于 cors 响应的头部字段，但是不常用。
 
@@ -830,16 +835,45 @@ http 旨在尽可能多缓存响应，只要满足 http 规定的缓存条件就
 
 可以在响应中使用 Set-Cookie 头设置 cookie，再次向同一服务器发送请求时会附带 cookie 信息在 Cookie 头中。
 
-Set-Cookie 头包含一些指令，指令之间以分号隔开，例如：
+**生命周期**可以通过两种方式定义：
 
-- cookie-name=cookie-value
+- 会话期，在当前会话结束后就删除，不包含任何有效期指令
+  ```http
+  Set-Cookie: sessionId=38afes7a8
+  ```
+- 持久型，可以通过 Max-Age 指定有效时长（优先级更高，小于等于 0 时立即失效），通过 Expires 指令指定失效时间
+  ```http
+  Set-Cookie: id=a3fWa; Max-Age=2592000
+  Set-Cookie: id=a3fWa; Expires=Wed, 21 Oct 2015 07:28:00 GMT
+  ```
 
-- 失效时间：expires，max-age
-- domain，path
-- 设置 secure 仅仅在 https 请求发送，设置 httponly 后无法通过 document.cookie 访问
-- samesite：设置为 strict 仅仅在同一站点请求发送 cookie
+**限制使用 cookie**
 
-可以通过 document.cookie 读取和写入 cookie。
+- Secure 指令，仅在使用 https 时才发送 cookie，本地主机除外（localhost）
+
+- HttpOnly 指令，无法使用 document.cookie 读取 cookie
+
+```http
+Set-Cookie: id=a3fWa; Max-Age=2592000; Secure; HttpOnly
+```
+
+**定义哪些地方可以发送 cookie**
+
+- Domain，指定 cookie 可以送达的主机，如果不指定，那么默认就是当前主机（并且不包含子域名），如果指定主机，那么包含子域名。
+
+```http
+Set-Cookie: sessionId=e8bb43229de9; Domain=example.com
+```
+
+- Path，指定路径
+
+```http
+Set-Cookie: sessionId=e8bb43229de9; Path=/docs
+```
+
+- SameSite，值为 Strict，Lax，None
+
+可以通过 document.cookie 读取（前提是没有设置 HttpOnly 指令）和写入 cookie。
 
 读取 document.cookie 的值得到 cookie1=value1;cookie2=values;...
 

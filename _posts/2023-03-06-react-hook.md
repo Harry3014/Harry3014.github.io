@@ -43,26 +43,14 @@ hook 被设计为一个链表，next 就指向了下一个 hook。
 我们以函数组件举例，函数组件在 beginWork 中调用 updateFunctionComponent。
 
 ```javascript
-function beginWork(
-  current: Fiber | null,
-  workInProgress: Fiber,
-  renderLanes: Lanes
-) {
+function beginWork(current: Fiber | null, workInProgress: Fiber, renderLanes: Lanes) {
   switch (workInProgress.tag) {
     case FunctionComponent: {
       const Component = workInProgress.type;
       const unresolvedProps = workInProgress.pendingProps;
       const resolvedProps =
-        workInProgress.elementType === Component
-          ? unresolvedProps
-          : resolveDefaultProps(Component, unresolvedProps);
-      return updateFunctionComponent(
-        current,
-        workInProgress,
-        Component,
-        resolvedProps,
-        renderLanes
-      );
+        workInProgress.elementType === Component ? unresolvedProps : resolveDefaultProps(Component, unresolvedProps);
+      return updateFunctionComponent(current, workInProgress, Component, resolvedProps, renderLanes);
     }
   }
 }
@@ -80,14 +68,7 @@ function updateFunctionComponent(
   nextProps: any,
   renderLanes: Lanes
 ) {
-  let nextChildren = renderWithHooks(
-    current,
-    workInProgress,
-    Component,
-    nextProps,
-    context,
-    renderLanes
-  );
+  let nextChildren = renderWithHooks(current, workInProgress, Component, nextProps, context, renderLanes);
 
   if (current !== null && !didReceiveUpdate) {
     bailoutHooks(current, workInProgress, renderLanes);
@@ -121,9 +102,7 @@ function renderWithHooks<Props, SecondArg>(
   // Non-stateful hooks (e.g. context) don't get added to memoizedState,
   // so memoizedState would be null during updates and mounts.
   ReactCurrentDispatcher.current =
-    current === null || current.memoizedState === null
-      ? HooksDispatcherOnMount
-      : HooksDispatcherOnUpdate;
+    current === null || current.memoizedState === null ? HooksDispatcherOnMount : HooksDispatcherOnUpdate;
   let children = Component(props, secondArg);
   return children;
 }
@@ -136,9 +115,7 @@ function renderWithHooks<Props, SecondArg>(
 我们以分析最常见的 useState 为例。
 
 ```javascript
-function useState<S>(
-  initialState: (() => S) | S
-): [S, Dispatch<BasicStateAction<S>>] {
+function useState<S>(initialState: (() => S) | S): [S, Dispatch<BasicStateAction<S>>] {
   const dispatcher = resolveDispatcher();
   return dispatcher.useState(initialState);
 }
@@ -225,11 +202,7 @@ function mountState(initialState) {
     lastRenderedState: initialState,
   };
   hook.queue = queue;
-  const dispatch = (queue.dispatch = dispatchSetState.bind(
-    null,
-    currentlyRenderingFiber,
-    queue
-  ));
+  const dispatch = (queue.dispatch = dispatchSetState.bind(null, currentlyRenderingFiber, queue));
   return [hook.memoizedState, dispatch];
 }
 ```
@@ -368,9 +341,7 @@ function updateReducer(reducer, initialArg, init) {
   const queue = hook.queue;
 
   if (queue === null) {
-    throw new Error(
-      "Should have a queue. This is likely a bug in React. Please file an issue."
-    );
+    throw new Error("Should have a queue. This is likely a bug in React. Please file an issue.");
   }
 
   queue.lastRenderedReducer = reducer;
@@ -530,11 +501,7 @@ function mountReducer(reducer, initialArg, init) {
     lastRenderedState: initialState,
   };
   hook.queue = queue;
-  const dispatch = (queue.dispatch = dispatchReducerAction.bind(
-    null,
-    currentlyRenderingFiber,
-    queue
-  ));
+  const dispatch = (queue.dispatch = dispatchReducerAction.bind(null, currentlyRenderingFiber, queue));
   return [hook.memoizedState, dispatch];
 }
 ```
@@ -583,16 +550,8 @@ useState 和 useReducer 共用 updateReducer。
 **mount**
 
 ```javascript
-function mountEffect(
-  create: () => (() => void) | void,
-  deps: Array<mixed> | void | null
-): void {
-  mountEffectImpl(
-    PassiveEffect | PassiveStaticEffect,
-    HookPassive,
-    create,
-    deps
-  );
+function mountEffect(create: () => (() => void) | void, deps: Array<mixed> | void | null): void {
+  mountEffectImpl(PassiveEffect | PassiveStaticEffect, HookPassive, create, deps);
 }
 
 function mountEffectImpl(
@@ -604,12 +563,7 @@ function mountEffectImpl(
   const hook = mountWorkInProgressHook();
   const nextDeps = deps === undefined ? null : deps;
   currentlyRenderingFiber.flags |= fiberFlags;
-  hook.memoizedState = pushEffect(
-    HookHasEffect | hookFlags,
-    create,
-    undefined,
-    nextDeps
-  );
+  hook.memoizedState = pushEffect(HookHasEffect | hookFlags, create, undefined, nextDeps);
 }
 
 function pushEffect(
@@ -626,8 +580,7 @@ function pushEffect(
     // Circular
     next: (null: any),
   };
-  let componentUpdateQueue: null | FunctionComponentUpdateQueue =
-    (currentlyRenderingFiber.updateQueue: any);
+  let componentUpdateQueue: null | FunctionComponentUpdateQueue = (currentlyRenderingFiber.updateQueue: any);
   if (componentUpdateQueue === null) {
     componentUpdateQueue = createFunctionComponentUpdateQueue();
     currentlyRenderingFiber.updateQueue = (componentUpdateQueue: any);
@@ -698,10 +651,7 @@ function pushEffect(
 **update**
 
 ```javascript
-function updateEffect(
-  create: () => (() => void) | void,
-  deps: Array<mixed> | void | null
-): void {
+function updateEffect(create: () => (() => void) | void, deps: Array<mixed> | void | null): void {
   updateEffectImpl(PassiveEffect, HookPassive, create, deps);
 }
 
@@ -729,12 +679,7 @@ function updateEffectImpl(
 
   currentlyRenderingFiber.flags |= fiberFlags;
 
-  hook.memoizedState = pushEffect(
-    HookHasEffect | hookFlags,
-    create,
-    destroy,
-    nextDeps
-  );
+  hook.memoizedState = pushEffect(HookHasEffect | hookFlags, create, destroy, nextDeps);
 }
 ```
 
@@ -760,7 +705,7 @@ function flushPassiveEffectsImpl() {
 
 ### useContext
 
-**创建context**
+**创建 context**
 
 ```javascript
 function createContext(defaultValue) {
@@ -781,7 +726,7 @@ function createContext(defaultValue) {
 
 创建 context 对象，他的属性应该都比较好理解。
 
-**提供context**
+**提供 context**
 
 使用`<SomeContext.Provider value={newValue}>`提供 context。在 beginWork 中处理如下。
 
@@ -808,15 +753,8 @@ function updateContextProvider(current, workInProgress, renderLanes) {
     const oldValue = oldProps.value;
     if (is(oldValue, newValue)) {
       // No change. Bailout early if children are the same.
-      if (
-        oldProps.children === newProps.children &&
-        !hasLegacyContextChanged()
-      ) {
-        return bailoutOnAlreadyFinishedWork(
-          current,
-          workInProgress,
-          renderLanes
-        );
+      if (oldProps.children === newProps.children && !hasLegacyContextChanged()) {
+        return bailoutOnAlreadyFinishedWork(current, workInProgress, renderLanes);
       }
     } else {
       // The context value changed. Search for matching consumers and schedule
@@ -831,6 +769,196 @@ function updateContextProvider(current, workInProgress, renderLanes) {
 }
 ```
 
-**使用context**
+**使用 context**
 
-返回context._currentValue
+返回 context.\_currentValue
+
+## 范例
+
+### useReducer
+
+```js
+const [state, dispatch] = useReducer(reducer, initialArg, init?)
+```
+
+- reducer 函数，接收当前 state 和一个 action，action 的结构可以多种多样，但是一般都含有 type 属性来描述发生了什么，根据不同 action 返回新的 state。
+
+```js
+function reducer(state, action) {
+  // ...
+}
+```
+
+- 如果没有 init 参数，那么初始 state 就是 initialArg，否则调用 init 返回初始 state
+
+下面的例子使用了 immer。
+
+```js
+import { useImmerReducer } from "use-immer";
+import AddTask from "./AddTask.js";
+import TaskList from "./TaskList.js";
+
+function tasksReducer(draft, action) {
+  switch (action.type) {
+    case "added": {
+      draft.push({
+        id: action.id,
+        text: action.text,
+        done: false,
+      });
+      break;
+    }
+    case "changed": {
+      const index = draft.findIndex((t) => t.id === action.task.id);
+      draft[index] = action.task;
+      break;
+    }
+    case "deleted": {
+      return draft.filter((t) => t.id !== action.id);
+    }
+    default: {
+      throw Error("未知 action：" + action.type);
+    }
+  }
+}
+
+export default function TaskApp() {
+  const [tasks, dispatch] = useImmerReducer(tasksReducer, initialTasks);
+
+  function handleAddTask(text) {
+    dispatch({
+      type: "added",
+      id: nextId++,
+      text: text,
+    });
+  }
+
+  function handleChangeTask(task) {
+    dispatch({
+      type: "changed",
+      task: task,
+    });
+  }
+
+  function handleDeleteTask(taskId) {
+    dispatch({
+      type: "deleted",
+      id: taskId,
+    });
+  }
+
+  return (
+    <>
+      <h1>布拉格的行程安排</h1>
+      <AddTask onAddTask={handleAddTask} />
+      <TaskList tasks={tasks} onChangeTask={handleChangeTask} onDeleteTask={handleDeleteTask} />
+    </>
+  );
+}
+
+let nextId = 3;
+const initialTasks = [
+  { id: 0, text: "参观卡夫卡博物馆", done: true },
+  { id: 1, text: "看木偶戏", done: false },
+  { id: 2, text: "打卡列侬墙", done: false },
+];
+```
+
+### useContext
+
+1. **创建** context
+2. **提供** context
+3. **使用** context
+
+context 的使用场景：
+
+- **主题**： 如果你的应用允许用户更改其外观（例如暗夜模式），你可以在应用顶层放一个 context provider，并在需要调整其外观的组件中使用该 context。
+- **当前账户**： 许多组件可能需要知道当前登录的用户信息。将它放到 context 中可以方便地在树中的任何位置读取它。某些应用还允许你同时操作多个账户（例如，以不同用户的身份发表评论）。在这些情况下，将 UI 的一部分包裹到具有不同账户数据的 provider 中会很方便。
+- **路由**： 大多数路由解决方案在其内部使用 context 来保存当前路由。这就是每个链接“知道”它是否处于活动状态的方式。如果你创建自己的路由库，你可能也会这么做。
+- **状态管理**： 随着你的应用的增长，最终在靠近应用顶部的位置可能会有很多 state。许多遥远的下层组件可能想要修改它们。通常 将 reducer 与 context 搭配使用来管理复杂的状态并将其传递给深层的组件来避免过多的麻烦。
+
+下面介绍 reducer 和 context 结合的例子，上面的 TaskApp 还需要传递 tasks 和事件处理程序。
+
+现在我们修改一下，把 tasks 状态和 dispatch 函数放入 context 中，这样就无需透传了。
+
+1. 创建 context
+
+TaskContext.js
+
+```jsx
+import { createContext } from "react";
+
+export const TasksContext = createContext(null);
+export const TasksDispatchContext = createContext(null);
+```
+
+2. 提供 context
+
+TaskApp.js
+
+```jsx
+import { useReducer } from "react";
+import AddTask from "./AddTask.js";
+import TaskList from "./TaskList.js";
+import { TasksContext, TasksDispatchContext } from "./TasksContext.js";
+
+export default function TaskApp() {
+  const [tasks, dispatch] = useReducer(tasksReducer, initialTasks);
+
+  return (
+    <TasksContext.Provider value={tasks}>
+      <TasksDispatchContext.Provider value={dispatch}>
+        <h1>Day off in Kyoto</h1>
+        <AddTask />
+        <TaskList />
+      </TasksDispatchContext.Provider>
+    </TasksContext.Provider>
+  );
+}
+```
+
+3. 使用 context
+
+AddTask.js
+
+```jsx
+export default function AddTask() {
+  const dispatch = useContext(TasksDispatchContext);
+
+  // ...
+}
+```
+
+TaskList.js
+
+```jsx
+export default function TaskList() {
+  const tasks = useContext(TasksContext);
+  // ...
+}
+```
+
+可以通过将所有传递信息的代码移动到单个文件中来进一步整理组件。
+
+- 可以导出一个像 TasksProvider 提供 context 的组件。
+- 可以导出像 useTasks 和 useTasksDispatch 这样的自定义 Hook。
+
+```jsx
+export function TasksProvider({ children }) {
+  const [tasks, dispatch] = useReducer(tasksReducer, initialTasks);
+
+  return (
+    <TasksContext.Provider value={tasks}>
+      <TasksDispatchContext.Provider value={dispatch}>{children}</TasksDispatchContext.Provider>
+    </TasksContext.Provider>
+  );
+}
+
+export function useTasks() {
+  return useContext(TasksContext);
+}
+
+export function useTasksDispatch() {
+  return useContext(TasksDispatchContext);
+}
+```
