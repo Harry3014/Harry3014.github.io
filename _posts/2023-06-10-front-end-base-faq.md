@@ -1276,72 +1276,60 @@ function debounce(func, wait) {
 如果要支持在连续调用请求的一开始执行，那么实现如下。
 
 ```javascript
-function debounce(func, wait, immediate = false) {
-  let timer = null;
+function debounce(func, delay, immediate = false) {
+  let timeoutID = null;
 
-  return function (...theArgs) {
-    const context = this;
-
-    if (timer === null) {
-      if (immediate) {
-        func.apply(context, theArgs);
-      }
-    } else {
+  return function (...args) {
+    if (timeoutID !== null) {
       clearTimeout(timer);
+    } else if (immediate === true) {
+      func.apply(this, args);
     }
 
-    timer = setTimeout(() => {
-      if (!immediate) {
-        func.apply(context, theArgs);
+    timeoutID = setTimeout(() => {
+      if (immediate === false) {
+        func.apply(this, args);
       }
-      timer = null;
-    }, wait);
+      timeoutID = null;
+    }, delay);
   };
 }
 ```
 
 我们可以看到，在 wait 时间内如果再次调用函数是会被忽略的，核心在于重置计时器。
 
-下面是一个实际运用的例子，点击按钮提交表单，我们期望的是：无论连续点击多少次按钮，只会提交一次。
+列举一些使用场景：
 
-```javascript
-btn.addEventListener("click", debounce(onSubmit, 1000, true));
-```
+- 输入框等到连续输入结束后再进行处理
+
+- 连续点击提交表单，只提交 1 次
 
 **节流**
 
 节流与防抖控制频率的方式不同，节流是指在一段时间内最多只执行一次该函数，不管调用请求是否是连续的。
 
 ```javascript
-function throttle(func, wait, immediate = false) {
-  let timer = null;
+function throttle(func, delay, immediate = false) {
+  let timeoutID = null;
 
-  return function (...theArgs) {
-    if (timer !== null) {
-      return;
-    }
-
-    const context = this;
-
-    if (immediate) {
-      func.apply(context, theArgs);
-    }
-
-    timer = setTimeout(() => {
-      if (!immediate) {
-        func.apply(context, theArgs);
+  return function (...args) {
+    if (timeoutID === null) {
+      if (immediate === true) {
+        func.apply(this, args);
       }
-      timer = null;
-    }, wait);
+
+      timeoutID = setTimeout(() => {
+        if (immediate === false) {
+          func.apply(this, ...args);
+        }
+        timeoutID = null;
+      }, delay);
+    }
   };
 }
 ```
 
-下面是一个实际运用例子，scroll 事件的处理无需如此频繁。
-
-```javascript
-container.addEventListener("scroll", throttle(onScroll, 1000));
-```
+使用场景：resize 和 scroll 无需频繁处理
 
 ### promise 简单实现
 

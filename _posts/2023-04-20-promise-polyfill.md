@@ -671,3 +671,45 @@ class PromisePolyfill {
   }
 }
 ```
+
+## 实现 Promise.map
+
+```js
+Promise.map = (array, mapper, limit) => {
+  const results = [];
+  let activeCount = 0;
+  let currentIndex = 0;
+
+  return new Promise((resolve, reject) => {
+    const processNext = () => {
+      if (results.length === array.length) {
+        resolve(results);
+        return;
+      }
+
+      const promise = Promise.resolve(mapper(array[currentIndex]));
+
+      activeCount++;
+      currentIndex++;
+
+      promise
+        .then((value) => {
+          results.push(value);
+        })
+        .catch((error) => {
+          reject(error);
+        })
+        .finally(() => {
+          activeCount--;
+          processNext();
+        });
+
+      if (activeCount < limit) {
+        processNext();
+      }
+    };
+
+    processNext();
+  });
+};
+```
