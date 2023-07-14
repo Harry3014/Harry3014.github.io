@@ -1318,6 +1318,24 @@ function debounce(func, delay, immediate = false) {
 
 - 连续点击提交表单，只提交 1 次
 
+```js
+function useDebounce(value, delay) {
+  const [debounceValue, setDebounceValue] = useState(value);
+
+  useEffect(() => {
+    const timerID = setTimeout(() => {
+      setDebounceValue(value);
+    }, delay);
+
+    return () => {
+      clearTimerID(timerID);
+    };
+  }, [value, delay]);
+
+  return debounceValue;
+}
+```
+
 **节流**
 
 节流与防抖控制频率的方式不同，节流是指在一段时间内最多只执行一次该函数，不管调用请求是否是连续的。
@@ -1340,6 +1358,30 @@ function throttle(func, delay, immediate = false) {
       }, delay);
     }
   };
+}
+```
+
+```js
+function useThrottle(value, interval) {
+  const [throttleValue, setThrottleValue] = useState(value);
+
+  const timerRef = useRef();
+
+  useEffect(() => {
+    const timerID = timerRef.current;
+    if (!timerID) {
+      timerRef.current = setTimeout(() => {
+        setThrottleValue(value);
+      }, interval);
+
+      return () => {
+        clearTimeout(timerRef.current);
+        timerRef.current = null;
+      };
+    }
+  }, [value, interval]);
+
+  return throttleValue;
 }
 ```
 
