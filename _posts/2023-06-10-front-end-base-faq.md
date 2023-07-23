@@ -1607,6 +1607,84 @@ function formatNum(num) {
 }
 ```
 
+### 手写 call
+
+```js
+Function.prototype.myCall = function (thisArg) {
+  thisArg = thisArg ?? window;
+
+  // 或者使用随机数生成一个临时属性
+  const tempAttr = Symbol();
+  thisArg[tempAttr] = this;
+
+  const args = [];
+  for (let i = 1; i < arguments.length; i++) {
+    args.push(`arguments[${i}]`);
+  }
+
+  const result = eval(`thisArg[tempAttr](${args})`);
+  delete thisArg[tempAttr];
+
+  return result;
+};
+```
+
+### 手写 apply
+
+```js
+Function.prototype.myApply = function (thisArg, array) {
+  thisArg = thisArg ?? window;
+
+  const tempAttr = Symbol();
+  thisArg[tempAttr] = this;
+
+  let result;
+
+  if (!!array === false) {
+    result = thisArg[tempAttr]();
+  } else if (Array.isArray(array)) {
+    result = eval(`thisArg[tempAttr](${array})`);
+  } else {
+    delete thisArg[tempAttr];
+    throw new TypeError("wrong parameter type");
+  }
+
+  delete thisArg[tempAttr];
+
+  return result;
+};
+```
+
+### 手写 bind
+
+加入 fNOP 主要是为了 new 考虑，new 的时候 this 不会使用传入的参数。
+
+```js
+Function.prototype.myBind = function (thisArg) {
+  if (typeof this !== "function") {
+    throw new TypeError("error");
+  }
+
+  const args = Array.prototype.slice.call(arguments, 1);
+
+  const fToBind = this;
+
+  const fNOP = function () {};
+
+  const fBound = function () {
+    fToBind.apply(
+      this instanceof fNOP ? this : thisArg,
+      args.concat(Array.prototype.slice.call(arguments))
+    );
+  };
+
+  fNOP.prototype = this.prototype;
+  fBound.prototype = new fNOP();
+
+  return fBound;
+};
+```
+
 ## React 相关
 
 ### 函数组件与类组件的不同
