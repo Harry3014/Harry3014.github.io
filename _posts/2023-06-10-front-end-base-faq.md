@@ -1685,6 +1685,30 @@ Function.prototype.myBind = function (thisArg) {
 };
 ```
 
+### 十六进制颜色转rgb
+
+```js
+function hexToRgb(hexColor) {
+  if (!/^#([0-9a-fA-F]{3}){1,2}$/.test(hexColor)) {
+    return hexColor;
+  }
+
+  let numberPart = hexColor.replace("#", "");
+  if (numberPart.length === 3) {
+    numberPart = numberPart
+      .split("")
+      .map((char) => char + char)
+      .join("");
+  }
+
+  const red = parseInt(numberPart.substring(0, 2), 16);
+  const green = parseInt(numberPart.substring(2, 4), 16);
+  const blue = parseInt(numberPart.substring(4, 6), 16);
+
+  return `rgb(${red}, ${green}, ${blue})`;
+}
+```
+
 ## React 相关
 
 ### 函数组件与类组件的不同
