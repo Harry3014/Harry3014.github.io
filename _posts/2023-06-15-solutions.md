@@ -23,8 +23,16 @@ component 调用 hook，hook 使用 provider 提供的 api，provider 可向服�
 
 ```ts
 const authProvider = {
-  // 使用用户名，密码，或者saml等方式向认证服务器发起renzheng
+  // 使用用户名，密码，或者saml等方式向认证服务器发起认证
   login: async (params) => ({}),
+  logout: async (params) => ({}),
+  // 获取用户资料
+  getIdentity: async (params) => ({}),
+  // 获取用户权限
+  getPermission: async (params) => ({}),
+  onError: async (error) => ({}),
+  // 检查是否已经认证
+  check: async (params) => ({}),
 };
 ```
 

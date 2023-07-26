@@ -413,7 +413,7 @@ Promise.prototype.finally(onFinally)
     () => {}
   ); // 返回的promise最终状态为resolved，结果为undefined，因为回调函数没有返回值
   Promise.resolve(2).finally(() => {}); // 返回的promise最终状态为resolved，结果为2
-
+  
   Promise.reject(3).then(
     () => {},
     () => {}
@@ -689,7 +689,7 @@ DNS 查询得到 IP 地址
 
 5.  (2 MSL)
     CLOSED
-</pre>
+    </pre>
 
 ### TLS 握手
 
@@ -700,6 +700,60 @@ DNS 查询得到 IP 地址
 1. 客户端发送 ClientHello 消息，包括支持的 TLS 版本，密码套件（包括加密算法）等信息
 2. 服务器收到消息后，判断是否支持相关版本和密码套件，如果支持，那么可以发回已决定的 TLS 版本，密码套件，证书等信息，证书包含颁发机构，公钥等信息
 3. 客户端验证证书是否有效，所有验证通过后，客户端使用随机数生成一个会话密钥，并使用公钥加密，然后发回到服务器，只有服务器的私钥才能解密得到会话密钥。后续使用这个会话密钥加密数据。
+
+### html5 有哪些新特性
+
+- 新的语义元素，比如 header, footer, article, section。
+
+- 新的表单控件，比如数字、日期、时间、日历和滑块。
+
+- 强大的图像支持（借由 canvas 和 svg）
+
+  - canvas 使用 js 画图，基于分辨率
+
+  - svg 基于 xml，不基于分辨率
+
+- 强大的多媒体支持（借由 video 和 audio）
+
+- 本地存储取代 cookie，localeStorage，sessionStorage。
+
+- 原生支持拖放
+
+- web worker
+
+### css3 有哪些新特性
+
+- 新的选择器和选择符，例如伪类，直接子代
+
+- flex，grid 布局
+
+- 动画，animation，transition
+
+- 媒体查询
+
+### animation 和 transiton 不同
+
+**animation** 属性是 [`animation-name`](https://developer.mozilla.org/zh-CN/docs/Web/CSS/animation-name)，[`animation-duration`](https://developer.mozilla.org/zh-CN/docs/Web/CSS/animation-duration), [`animation-timing-function`](https://developer.mozilla.org/zh-CN/docs/Web/CSS/animation-timing-function)，[`animation-delay`](https://developer.mozilla.org/zh-CN/docs/Web/CSS/animation-delay)，[`animation-iteration-count`](https://developer.mozilla.org/zh-CN/docs/Web/CSS/animation-iteration-count)，[`animation-direction`](https://developer.mozilla.org/zh-CN/docs/Web/CSS/animation-direction)，[`animation-fill-mode`](https://developer.mozilla.org/zh-CN/docs/Web/CSS/animation-fill-mode) 和 [`animation-play-state`](https://developer.mozilla.org/zh-CN/docs/Web/CSS/animation-play-state) 属性的一个简写属性形式。
+
+
+
+transition 是 transition-property transition-duration transition-timing-function transition-delay 的简写
+
+```css
+div {
+  transition: transform 2s ease 1s;
+}
+```
+
+[在线示例](https://stackblitz.com/edit/js-vvt1v9?file=style.css)
+
+```js
+let x = 0;
+document.querySelector("div").addEventListener("click", (event) => {
+  x += 200;
+  event.currentTarget.style.transform = `translateX(${x}px)`;
+});
+```
 
 ## HTTP
 
