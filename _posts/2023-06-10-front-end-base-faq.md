@@ -715,7 +715,7 @@ DNS 查询得到 IP 地址
 
 - 强大的多媒体支持（借由 video 和 audio）
 
-- 本地存储取代 cookie，localeStorage，sessionStorage。
+- 本地存储取代 cookie，localStorage，sessionStorage。
 
 - 原生支持拖放
 
@@ -731,29 +731,20 @@ DNS 查询得到 IP 地址
 
 - 媒体查询
 
-### animation 和 transiton 不同
+### css 单位
 
-**animation** 属性是 [`animation-name`](https://developer.mozilla.org/zh-CN/docs/Web/CSS/animation-name)，[`animation-duration`](https://developer.mozilla.org/zh-CN/docs/Web/CSS/animation-duration), [`animation-timing-function`](https://developer.mozilla.org/zh-CN/docs/Web/CSS/animation-timing-function)，[`animation-delay`](https://developer.mozilla.org/zh-CN/docs/Web/CSS/animation-delay)，[`animation-iteration-count`](https://developer.mozilla.org/zh-CN/docs/Web/CSS/animation-iteration-count)，[`animation-direction`](https://developer.mozilla.org/zh-CN/docs/Web/CSS/animation-direction)，[`animation-fill-mode`](https://developer.mozilla.org/zh-CN/docs/Web/CSS/animation-fill-mode) 和 [`animation-play-state`](https://developer.mozilla.org/zh-CN/docs/Web/CSS/animation-play-state) 属性的一个简写属性形式。
+绝对长度单位，例如 px，cm，mm，in
 
+相对长度单位
 
+- em，除了`font-size`是相对于父元素的字体大小，其他相对自身字体大小
+- rem，相对于根元素字体大小
+- vw，视窗宽度的 1%
+- vh，视窗高度的 1%
 
-transition 是 transition-property transition-duration transition-timing-function transition-delay 的简写
+### 处理大量 promise
 
-```css
-div {
-  transition: transform 2s ease 1s;
-}
-```
-
-[在线示例](https://stackblitz.com/edit/js-vvt1v9?file=style.css)
-
-```js
-let x = 0;
-document.querySelector("div").addEventListener("click", (event) => {
-  x += 200;
-  event.currentTarget.style.transform = `translateX(${x}px)`;
-});
-```
+[处理大量 promise](https://dev.to/karataev/handling-a-lot-of-requests-in-javascript-with-promises-1kbb)
 
 ## HTTP
 
@@ -1075,7 +1066,11 @@ _注意：`flex-direction: row`不一定是从左到右，要根据文字排列�
 
 **主轴方向对齐**
 
-`justify-content`定义了主轴方向上各个 flex item 之间的间隔。
+`justify-content`定义了主轴方向上各个 flex item 之间的间隔。注意区分：
+
+- space-between，每行第一个元素与行首对齐，每行最后一个元素与行尾对齐，相邻元素间距离相同
+- space-around，相邻元素间距离相同，第一个元素和最后一个元素两边各自分一半
+- space-evenly，相邻元素间距离相同，第一个元素和最后一个元素两边不再是各自分一半，而是跟其他的间距完全一样
 
 <figure>
   <img src="/assets/images/justify-content.svg">
@@ -1122,6 +1117,21 @@ _注意：`flex-direction: row`不一定是从左到右，要根据文字排列�
 <figure>
   <img src="/assets/images/order.svg">
 </figure>
+**一些默认值**
+
+当容器仅仅设置`display: flex`时，其他属性的默认值是
+
+- `flex-direction: row`
+- `flex-wrap: nowrap`
+
+flex 子项的一些默认值是
+
+- `flex-basis: auto`，在改元素未收缩和扩张前，在主轴上的大小
+- `flex-shrink: 1`，所以默认会收缩
+- `flex-grow: 0`，不会默认扩张
+
+当 flex 子项的`flex: auto`时，三项的值分别时`flex-basis: auto; flex-shrink: 1; flex-grow: 1;`
+
 ### 网格
 
 网格是一种二维的布局方式，通过网格，可以把内容按照列和行的格式进行排版。可以通过设置`display: grid`来定义一个网格。
@@ -1306,6 +1316,10 @@ header 的列从 1 号网格线到 3 号网格线，nav 的行从 2 号网格线
 ### css 居中
 
 [跳转](/centering-in-css)
+
+### 动画相关
+
+[跳转](/css-animation)
 
 ## 手写代码
 
@@ -1711,35 +1725,27 @@ Function.prototype.myApply = function (thisArg, array) {
 
 ### 手写 bind
 
-加入 fNOP 主要是为了 new 考虑，new 的时候 this 不会使用传入的参数。
+注意使用new调用返回的函数
 
 ```js
-Function.prototype.myBind = function (thisArg) {
-  if (typeof this !== "function") {
-    throw new TypeError("error");
-  }
+Function.prototype.myBind = function (that) {
+  const F = this;
+  const Prototype = this.prototype;
+  const partArgs = Array.prototype.slice.call(arguments, 1);
 
-  const args = Array.prototype.slice.call(arguments, 1);
-
-  const fToBind = this;
-
-  const fNOP = function () {};
-
-  const fBound = function () {
-    fToBind.apply(
-      this instanceof fNOP ? this : thisArg,
-      args.concat(Array.prototype.slice.call(arguments))
-    );
+  const boundFunction = function () {
+    const args = partArgs.concat(Array.prototype.slice.call(arguments));
+    return F.apply(this instanceof boundFunction ? this : that, args);
   };
 
-  fNOP.prototype = this.prototype;
-  fBound.prototype = new fNOP();
+  // 保持原型
+  boundFunction.prototype = Prototype;
 
-  return fBound;
+  return boundFunction;
 };
 ```
 
-### 十六进制颜色转rgb
+### 十六进制颜色转 rgb
 
 ```js
 function hexToRgb(hexColor) {
