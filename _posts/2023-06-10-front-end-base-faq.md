@@ -1,5 +1,5 @@
 ---
-title: "置顶🔝"
+title: "前端总结"
 excerpt: ""
 toc: true
 toc_sticky: true
@@ -413,7 +413,7 @@ Promise.prototype.finally(onFinally)
     () => {}
   ); // 返回的promise最终状态为resolved，结果为undefined，因为回调函数没有返回值
   Promise.resolve(2).finally(() => {}); // 返回的promise最终状态为resolved，结果为2
-  
+
   Promise.reject(3).then(
     () => {},
     () => {}
@@ -741,10 +741,6 @@ DNS 查询得到 IP 地址
 - rem，相对于根元素字体大小
 - vw，视窗宽度的 1%
 - vh，视窗高度的 1%
-
-### 处理大量 promise
-
-[处理大量 promise](https://dev.to/karataev/handling-a-lot-of-requests-in-javascript-with-promises-1kbb)
 
 ## HTTP
 
@@ -1378,6 +1374,31 @@ function debounce(func, delay, immediate = false) {
 }
 ```
 
+支持最大等待时间，思路就是增加一个 timer。
+
+```js
+function debounce(fn, timeout, { maxTimeout }) {
+  let timer;
+  let maxTimer;
+  return function () {
+    clearTimeout(timer);
+    timer = setTimeout(() => {
+      clearTimeout(maxTimer);
+      maxTimer = null;
+      fn.apply(this, arguments);
+    }, timeout);
+
+    if (maxTimeout && !maxTimer) {
+      maxTimer = setTimeout(() => {
+        clearTimeout(timer);
+        maxTimer = null;
+        fn.apply(this, arguments);
+      }, maxTimeout);
+    }
+  };
+}
+```
+
 我们可以看到，在 wait 时间内如果再次调用函数是会被忽略的，核心在于重置计时器。
 
 列举一些使用场景：
@@ -1725,7 +1746,7 @@ Function.prototype.myApply = function (thisArg, array) {
 
 ### 手写 bind
 
-注意使用new调用返回的函数
+注意使用 new 调用返回的函数
 
 ```js
 Function.prototype.myBind = function (that) {
@@ -1768,6 +1789,108 @@ function hexToRgb(hexColor) {
   return `rgb(${red}, ${green}, ${blue})`;
 }
 ```
+
+### 处理大量 promise
+
+[处理大量 promise](https://dev.to/karataev/handling-a-lot-of-requests-in-javascript-with-promises-1kbb)
+
+一个接一个执行。
+
+```js
+function processPromiseOneByOne(array, mapper) {
+  const result = [];
+
+  let promise = Promise.resolve("start");
+
+  for (const item of array) {
+    promise = promise.then(() => {
+      return mapper(item)
+        .then((value) => {
+          result.push({ state: "fulfilled", value });
+        })
+        .catch((reason) => {
+          result.push({ state: "rejected", reason });
+        });
+    });
+  }
+
+  return promise.then(() => result);
+}
+```
+
+或者使用数组的 reduce 方法，但是原理都是相同的。
+
+```js
+function promiseReduce(array, mapper) {
+  const result = [];
+
+  return array
+    .reduce((acc, item) => {
+      return acc.then(() => {
+        return mapper(item)
+          .then((value) => {
+            result.push({ state: "fulfilled", value });
+          })
+          .catch((reason) => {
+            result.push({ state: "rejected", reason });
+          });
+      });
+    }, Promise.resolve("start"))
+    .then(() => result);
+}
+```
+
+切分成小块执行。
+
+```js
+function processPromiseChunks(array, mapper, chunkSize = 5) {
+  let result = [];
+
+  let promise = Promise.resolve("start");
+
+  let index = 0;
+
+  const total = Math.ceil(array.length / chunkSize);
+
+  for (let i = 0; i < total; i++) {
+    promise = promise.then(() => {
+      const chunk = [];
+      while (chunk.length < chunkSize && index < array.length) {
+        chunk.push(mapper(array[index]));
+        index++;
+      }
+
+      return Promise.allSettled(chunk).then((chunkResult) => {
+        result = result.concat(chunkResult);
+      });
+    });
+  }
+
+  return promise.then(() => result);
+}
+```
+
+### lodash.get
+
+```js
+function get(obj, path, defaultValue) {
+  const parts = Array.isArray(path)
+    ? path
+    : path.replace(/\[([^\[\]]+)\]/g, ".$1").split(".");
+
+  let attempt = obj;
+  for (const part of parts) {
+    if (attempt === null || attempt === undefined) {
+      break;
+    }
+    attempt = attempt[part];
+  }
+
+  return attempt ?? defaultValue;
+}
+```
+
+思路：先用正则表达式把数组调用替换为小数点，然后按照小数点进行分割。
 
 ## React 相关
 
@@ -2168,5 +2291,25 @@ function reverse(root) {
       queue.push(node.right);
     }
   }
+}
+```
+
+### 无重复最长子串
+
+思路：滑动窗口，记录字符下标，当发现重复字符时收缩滑动窗口，收缩时要注意边界，例如 abba，当发现最后一个 a 重复时，这时候不能再回到第一个字符去。
+
+```js
+function lengthOfLongestSubstring(s) {
+  let result = 0;
+  const indexMap = new Map();
+  let left = 0;
+  for (let right = 0; right < s.length; right++) {
+    if (indexMap.has(s[right])) {
+      left = Math.max(indexMap.get(s[right]) + 1, left);
+    }
+    indexMap.set(s[right], right);
+    result = Math.max(result, right - left + 1);
+  }
+  return result;
 }
 ```
