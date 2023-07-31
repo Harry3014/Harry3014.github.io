@@ -1872,11 +1872,11 @@ function processPromiseChunks(array, mapper, chunkSize = 5) {
 
 ### lodash.get
 
+思路：先用正则表达式把数组调用替换为小数点，然后按照小数点进行分割。
+
 ```js
 function get(obj, path, defaultValue) {
-  const parts = Array.isArray(path)
-    ? path
-    : path.replace(/\[([^\[\]]+)\]/g, ".$1").split(".");
+  const parts = Array.isArray(path) ? path : path.replace(/\[([^\[\]]+)\]/g, ".$1").split(".");
 
   let attempt = obj;
   for (const part of parts) {
@@ -1890,7 +1890,65 @@ function get(obj, path, defaultValue) {
 }
 ```
 
-思路：先用正则表达式把数组调用替换为小数点，然后按照小数点进行分割。
+### 数组扁平化
+
+思路：递归
+
+```js
+function flat(array) {
+  const result = [];
+
+  for (const element of array) {
+    if (Array.isArray(element)) {
+      result.push(...flat(element));
+    } else {
+      result.push(element);
+    }
+  }
+
+  return result;
+}
+```
+
+如果需要支持深度参数
+
+```js
+function flat(array, depth = Infinity) {
+  if (depth === 0) {
+    return array;
+  }
+
+  const result = [];
+
+  for (const element of array) {
+    if (Array.isArray(element) && depth > 0) {
+      result.push(...flat(element, depth - 1));
+    } else {
+      result.push(element);
+    }
+  }
+
+  return result;
+}
+```
+
+也可以利用栈这一结构实现。
+
+```js
+function flat(array, depth = Infinity) {
+  const result = [];
+  const stack = array.map((element) => [element, depth]);
+  while (stack.length > 0) {
+    const [element, remainingDepth] = stack.pop();
+    if (Array.isArray(element) && remainingDepth > 0) {
+      stack.push(...element.map((item) => [item, remainingDepth - 1]));
+    } else {
+      result.unshift(element);
+    }
+  }
+  return result;
+}
+```
 
 ## React 相关
 

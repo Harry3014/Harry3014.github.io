@@ -413,18 +413,20 @@ static race(promises) {
 ## 完整版本
 
 ```javascript
-const PENDING_STATE = "pending";
-const FULFILLED_STATE = "fulfilled";
-const REJECTED_STATE = "rejected";
+class MyPromise {
+  #state;
+  #result;
 
-class PromisePolyfill {
-  #state = PENDING_STATE;
-  #result = undefined;
-
-  #fulfillHandlerQueue = [];
-  #rejectHandlerQueue = [];
+  #resolvedCallbacks;
+  #rejectedCallbacks;
 
   constructor(executor) {
+    this.#state = "pending";
+    this.#result = undefined;
+
+    this.#resolvedCallbacks = [];
+    this.#rejectedCallbacks = [];
+
     const resolve = this.#resolve.bind(this);
     const reject = this.#reject.bind(this);
 
@@ -436,94 +438,89 @@ class PromisePolyfill {
   }
 
   #resolve(value) {
-    if (this.#state !== PENDING_STATE) {
+    if (this.#state !== "pending") {
       return;
     }
 
-    this.#state = FULFILLED_STATE;
+    if (value instanceof MyPromise) {
+      value.then(
+        (result) => {
+          this.#resolve(result);
+        },
+        (error) => {
+          this.#reject(error);
+        }
+      );
+      return;
+    }
+
+    this.#state = "fulfilled";
     this.#result = value;
 
-    this.#executeAllHandler();
+    this.#scheduleCallback();
   }
 
-  #reject(reason) {
-    if (this.#state !== PENDING_STATE) {
+  #reject(error) {
+    if (this.#state !== "pending") {
       return;
     }
 
-    this.#state = REJECTED_STATE;
-    this.#result = reason;
+    this.#state = "rejected";
+    this.#result = error;
 
-    this.#executeAllHandler();
+    this.#scheduleCallback();
   }
 
-  #executeAllHandler() {
+  #scheduleCallback() {
     queueMicrotask(() => {
-      if (this.#state === FULFILLED_STATE) {
-        this.#fulfillHandlerQueue.forEach((handler) => {
-          handler(this.#result);
-        });
+      const callbacks = this.#state === "fulfilled" ? this.#resolvedCallbacks : this.#rejectedCallbacks;
 
-        this.#clearHandlerQueue();
-      }
+      callbacks.forEach((callback) => {
+        callback();
+      });
 
-      if (this.#state === REJECTED_STATE) {
-        this.#rejectHandlerQueue.forEach((handler) => {
-          handler(this.#result);
-        });
-
-        this.#clearHandlerQueue();
-      }
+      this.#resolvedCallbacks = [];
+      this.#rejectedCallbacks = [];
     });
   }
 
-  #clearHandlerQueue() {
-    this.#fulfillHandlerQueue = [];
-    this.#rejectHandlerQueue = [];
-  }
-
   then(onFulfilled, onRejected) {
-    return new PromisePolyfill((resolve, reject) => {
-      function createHandler(onSettled) {
-        return (originalPromiseResult) => {
-          try {
-            const returnValue = onSettled(originalPromiseResult);
+    if (typeof onFulfilled !== "function") {
+      onFulfilled = (value) => value;
+    }
 
-            if (returnValue instanceof PromisePolyfill) {
-              returnValue.then(
-                (value) => {
-                  resolve(value);
-                },
-                (reason) => {
-                  reject(reason);
-                }
-              );
-            } else {
-              resolve(returnValue);
-            }
-          } catch (error) {
-            reject(error);
+    if (typeof onRejected !== "function") {
+      onRejected = (error) => {
+        throw error;
+      };
+    }
+
+    const createCallback = (realCallback, resolve, reject) => {
+      return () => {
+        let callbackResult;
+
+        try {
+          callbackResult = realCallback(this.#result);
+
+          if (callbackResult instanceof MyPromise) {
+            callbackResult.then(resolve, reject);
+          } else {
+            resolve(callbackResult);
           }
-        };
+        } catch (error) {
+          reject(error);
+        }
+      };
+    };
+
+    return new MyPromise((resolve, reject) => {
+      this.#resolvedCallbacks.push(createCallback(onFulfilled, resolve, reject));
+
+      this.#rejectedCallbacks.push(createCallback(onRejected, resolve, reject));
+
+      if (this.#state !== "pending") {
+        this.#scheduleCallback();
       }
-
-      if (typeof onFulfilled !== "function") {
-        onFulfilled = (value) => {
-          return value;
-        };
-      }
-
-      this.#fulfillHandlerQueue.push(createHandler(onFulfilled));
-
-      if (typeof onRejected !== "function") {
-        onRejected = (reason) => {
-          throw reason;
-        };
-      }
-
-      this.#rejectHandlerQueue.push(createHandler(onRejected));
-
-      this.#executeAllHandler();
     });
   }
 
@@ -532,68 +529,54 @@ class PromisePolyfill {
   }
 
   finally(onFinally) {
-    function createHandler(isResolved) {
-      return (originalPromiseResult) => {
-        if (typeof onFinally === "function") {
-          const returnValue = onFinally();
-          if (
-            returnValue instanceof PromisePolyfill &&
-            returnValue.#state === REJECTED_STATE
-          ) {
-            return returnValue;
-          }
-        }
+    return new MyPromise((resolve, reject) => {
+      this.#resolvedCallbacks.push(() => {
+        onFinally();
+        resolve(this.#result);
+      });
 
-        if (isResolved) {
-          return originalPromiseResult;
-        }
-
-        throw originalPromiseResult;
-      };
-    }
-
-    return this.then(createHandler(true), createHandler(false));
+      this.#rejectedCallbacks.push(() => {
+        onFinally();
+        reject(this.#result);
+      });
+    });
   }
 
   static resolve(value) {
-    if (
-      value instanceof PromisePolyfill &&
-      value.constructor === PromisePolyfill
-    ) {
+    if (value instanceof MyPromise) {
       return value;
     }
 
-    return new PromisePolyfill((resolve) => {
+    return new MyPromise((resolve, reject) => {
       resolve(value);
     });
   }
 
-  static reject(reason) {
-    return new PromisePolyfill((_, reject) => {
-      reject(reason);
+  static reject(error) {
+    return new MyPromise((_, reject) => {
+      reject(error);
     });
   }
 
   static all(promises) {
-    return new PromisePolyfill((resolve, reject) => {
+    return new MyPromise((resolve, reject) => {
       const result = [];
 
-      const promiseSize = promises.length;
-
-      if (promiseSize === 0) {
+      if (promises.length === 0) {
         resolve(result);
+        return;
       }
 
       for (const promise of promises) {
         promise.then(
           (value) => {
             result.push(value);
-            if (result.length === promiseSize) {
+            if (result.length === promises.length) {
               resolve(result);
             }
           },
-          (reason) => {
-            reject(reason);
+          (error) => {
+            reject(error);
           }
         );
       }
@@ -601,48 +584,39 @@ class PromisePolyfill {
   }
 
   static allSettled(promises) {
-    return new PromisePolyfill((resolve) => {
+    return new MyPromise((resolve) => {
       const result = [];
 
-      const promiseSize = promises.length;
-
-      if (promiseSize === 0) {
+      if (promises.length === 0) {
         resolve(result);
+        return;
       }
 
       for (const promise of promises) {
-        promise
-          .then(
-            (value) => {
-              result.push({
-                status: FULFILLED_STATE,
-                value,
-              });
-            },
-            (reason) => {
-              result.push({
-                status: REJECTED_STATE,
-                reason,
-              });
-            }
-          )
-          .finally(() => {
-            if (result.length === promiseSize) {
+        promise.then(
+          (value) => {
+            result.push({ status: "fulfilled", value });
+            if (result.length === promises.length) {
               resolve(result);
             }
-          });
+          },
+          (reason) => {
+            result.push({ status: "rejected", reason });
+            if (result.length === promises.length) {
+              resolve(result);
+            }
+          }
+        );
       }
     });
   }
 
   static any(promises) {
-    return new PromisePolyfill((resolve, reject) => {
-      const promiseSize = promises.length;
+    return new MyPromise((resolve, reject) => {
+      const errors = [];
 
-      const reasons = [];
-
-      if (promiseSize === 0) {
-        reject(new AggregateError(reasons, "All promises were rejected"));
+      if (promises.length === 0) {
+        reject(new AggregateError(errors));
       }
 
       for (const promise of promises) {
@@ -650,11 +624,11 @@ class PromisePolyfill {
           (value) => {
             resolve(value);
           },
-          (reason) => {
-            reasons.push(reason);
+          (error) => {
+            errors.push(error);
 
-            if (reasons.length === promiseSize) {
-              reject(new AggregateError(reasons, "All promises were rejected"));
+            if (errors.length === promises.length) {
+              reject(new AggregateError(errors));
             }
           }
         );
@@ -663,9 +637,11 @@ class PromisePolyfill {
   }
 
   static race(promises) {
-    return new PromisePolyfill((resolve, reject) => {
+    return new MyPromise((resolve) => {
       for (const promise of promises) {
-        promise.then(resolve, reject);
+        promise.then((value) => {
+          resolve(value);
+        });
       }
     });
   }
@@ -710,6 +686,28 @@ Promise.map = (array, mapper, limit) => {
     };
 
     processNext();
+  });
+};
+```
+
+## 实现 Promise.retry
+
+```js
+Promise.retry = function (fn, retryTimes, delay) {
+  return new Promise((resolve, reject) => {
+    fn()
+      .then(resolve)
+      .catch(() => {
+        if (retryTimes === 0) {
+          reject("all rejected");
+        } else {
+          return new Promise((resolve) => {
+            setTimeout(resolve, delay);
+          }).then(() => {
+            return Promise.retry(fn, --retryTimes, delay);
+          });
+        }
+      });
   });
 };
 ```
