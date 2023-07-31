@@ -413,7 +413,7 @@ Promise.prototype.finally(onFinally)
     () => {}
   ); // 返回的promise最终状态为resolved，结果为undefined，因为回调函数没有返回值
   Promise.resolve(2).finally(() => {}); // 返回的promise最终状态为resolved，结果为2
-
+  
   Promise.reject(3).then(
     () => {},
     () => {}
@@ -693,6 +693,10 @@ DNS 查询得到 IP 地址
 
 ### TLS 握手
 
+[TLS 握手期间会发生什么](https://www.cloudflare.com/zh-cn/learning/ssl/what-happens-in-a-tls-handshake/)
+
+[公钥加密如何运作](https://www.cloudflare.com/zh-cn/learning/ssl/how-does-public-key-encryption-work/)
+
 <figure>
   <img src="/assets/images/tls-handshake.png">
 </figure>
@@ -700,6 +704,11 @@ DNS 查询得到 IP 地址
 1. 客户端发送 ClientHello 消息，包括支持的 TLS 版本，密码套件（包括加密算法）等信息
 2. 服务器收到消息后，判断是否支持相关版本和密码套件，如果支持，那么可以发回已决定的 TLS 版本，密码套件，证书等信息，证书包含颁发机构，公钥等信息
 3. 客户端验证证书是否有效，所有验证通过后，客户端使用随机数生成一个会话密钥，并使用公钥加密，然后发回到服务器，只有服务器的私钥才能解密得到会话密钥。后续使用这个会话密钥加密数据。
+
+总结：
+
+- 使用公私钥（两个密钥）来协商会话密钥，这部分是非对称加密
+- 一旦握手完成，使用会话密钥进行对称加密
 
 ### html5 有哪些新特性
 
