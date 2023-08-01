@@ -413,7 +413,7 @@ Promise.prototype.finally(onFinally)
     () => {}
   ); // 返回的promise最终状态为resolved，结果为undefined，因为回调函数没有返回值
   Promise.resolve(2).finally(() => {}); // 返回的promise最终状态为resolved，结果为2
-  
+
   Promise.reject(3).then(
     () => {},
     () => {}
@@ -750,6 +750,10 @@ DNS 查询得到 IP 地址
 - rem，相对于根元素字体大小
 - vw，视窗宽度的 1%
 - vh，视窗高度的 1%
+
+### osi 模型
+
+物理层，链路层，网络层，传输层，会话层，表示层，应用层
 
 ## HTTP
 

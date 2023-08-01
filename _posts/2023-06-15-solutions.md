@@ -112,3 +112,64 @@ export const useSubscription = ({
 ## data provider
 
 [refine restful data provider](https://github.com/refinedev/refine/blob/ea30938de7d8ac5d64ea2812472d057f19660ff0/packages/simple-rest/src/provider.ts)
+
+## access control
+
+定义 access control context
+
+[refine 源码](https://github.com/refinedev/refine/blob/bf2a0fc1445020e662f1f3ab1e3ac8b8f22e30fb/packages/core/src/contexts/accessControl/IAccessControlContext.ts)
+
+[refine 源码](https://github.com/refinedev/refine/blob/bf2a0fc1445020e662f1f3ab1e3ac8b8f22e30fb/packages/core/src/contexts/accessControl/index.tsx)
+
+组件<CanAccess>，举一个例子
+
+```jsx
+<CanAccess resource="employee" action="save" fallback={<p>You cannot access this section</p>} params={{ id: 1 }}>
+  <YourComponent />
+</CanAccess>
+```
+
+hook useCan，返回一个结果表示有无权限，举一个例子
+
+```js
+useCan({
+  resource: "employee",
+  action: "save",
+  params: {
+    id: 1,
+  },
+});
+```
+
+## TS
+
+### 泛型
+
+在声明时不指定类型，在使用时才指定特定的类型。
+
+### type 和 interface
+
+- type 可以重命名原始类型
+- type 不能重新打开添加新属性，可以通过交叉类型，而 interface 可以重复声明
+
+### 反问
+
+- 团队规模
+- 对于一个不熟悉 vue 的人有什么建议
+- 需求变更后的流程
+
+## 快速加载
+
+- 使用缓存
+
+## 排期
+
+- 需求分析
+- 熟悉项目，技术调研
+- 写代码
+- 自测，配合后台测试
+- qa 测试
+- 修复
+- 部署上线，做好回滚预案
+- 预留空间，不熟悉项目 1.2，不熟悉解决方案 1.5，需求随时变化等等因素
+- 即时反馈，过程中遇到困难
